@@ -595,10 +595,12 @@
     if (lit === menorahLit) return;
     menorahLit = lit;
     const xs = [14, 32, 50, 68, 112, 130, 148, 166];   // left → right; the first night's candle is on the right
-    let s = '<defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#a87414"/></linearGradient></defs>';
-    s += '<g fill="none" stroke="url(#mg)" stroke-width="3.2" stroke-linecap="round">';
-    for (let i = 0; i < 4; i++) { const x = xs[i], r = 90 - x; s += `<path d="M${x} 34 A${r} ${r * 0.62} 0 0 0 ${180 - x} 34"/>`; }
-    s += '<path d="M90 26 L90 64"/><path d="M72 66 L108 66"/></g>';
+    let s = '<defs><linearGradient id="mg" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="70"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#a87414"/></linearGradient></defs>';
+    // Straight diagonal branches (as in Rashi's and the Rambam's drawing, the form Chabad uses):
+    // each pair rises in a straight line from the centre stem, outer pairs from lower down.
+    s += '<g fill="none" stroke="url(#mg)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">';
+    for (let i = 0; i < 4; i++) { const x = xs[i], y0 = 62 - i * 8; s += `<path d="M${x} 34 L90 ${y0} L${180 - x} 34"/>`; }
+    s += '<path d="M90 26 L90 64"/><path d="M76 66 L104 66" stroke-width="4"/></g>';
     const candle = (x, y, on, sham) => `<rect x="${x - 2.6}" y="${y}" width="5.2" height="${sham ? 14 : 11}" rx="1.4" fill="${sham ? '#fff4d9' : '#cfe0ff'}"/>` +
       (on ? `<ellipse class="flame" cx="${x}" cy="${y - 4}" rx="2.8" ry="5" fill="#ffd34d"/><ellipse cx="${x}" cy="${y - 3}" rx="1.3" ry="2.4" fill="#fff"/>` : '');
     xs.forEach((x, i) => { s += candle(x, 23, (7 - i) < lit, false); });
