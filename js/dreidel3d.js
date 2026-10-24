@@ -14,22 +14,19 @@ const Dreidel3D = (function () {
   const C = CONFIG;
 
   // Dreidel proportions (model units). The tip sits at the origin.
-  const W = 0.9, TIP_H = 0.55, BODY_H = 1.0, HANDLE_H = 0.55, HANDLE_R = 0.085, KNOB_R = 0.12;
-  const BODY_Y = TIP_H + BODY_H / 2;
-  const TOP_Y = TIP_H + BODY_H;
-  const FULL_H = TOP_Y + HANDLE_H + KNOB_R;
+  const M = DreidelModel;
+  const W = M.W, TIP_H = M.TIP_H, BODY_H = M.BODY_H, BODY_Y = M.BODY_Y, TOP_Y = M.TOP_Y, FULL_H = M.FULL_H;
   // Face k's outward normal angle, measured from +Z toward +X.
   const FACE_ANGLE = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
   const SCALE = 1.3;   // dreidel size on the table
 
   let renderer, scene, camera, container, envTex = null;
-  let table = null, rail = null, trim = null, vignette = null, feltMat = null;
+  let table = null, rail = null, trim = null, vignette = null, track = null, feltMat = null, railMat = null, woodMat = null;
   let pivot, flip, model = null, particles = null, shadowDisc = null;
   let rx = 2.6, rz = 3.5;                  // table radii
   let skinId = 'wood', inIsrael = false;
   let anim = null;                         // current animation
   let idleYaw = 0, lastT = 0, running = false;
-  let fontReady = false;
   const texCache = {};
   const listeners = { layout: [] };
 
@@ -40,365 +37,39 @@ const Dreidel3D = (function () {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 
-  // ---------- Canvas textures ----------
-  function canvas(w, h = w) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
-  function tex(c, { srgb = true, repeat = null, nearest = false } = {}) {
-    const t = new T.CanvasTexture(c);
-    if (srgb) t.colorSpace = T.SRGBColorSpace;
-    if (repeat) { t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(repeat, repeat); }
-    if (nearest) { t.magFilter = T.NearestFilter; t.minFilter = T.NearestFilter; t.generateMipmaps = false; }
-    else t.anisotropy = 4;
-    return t;
-  }
-  function noiseFill(g, w, h, base, amt, count, size = 1) {
-    g.fillStyle = base; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < count; i++) {
-      const v = Math.random();
-      g.fillStyle = v > 0.5 ? `rgba(255,255,255,${amt * Math.random()})` : `rgba(0,0,0,${amt * Math.random()})`;
-      g.fillRect(Math.random() * w, Math.random() * h, size, size);
-    }
-  }
-
-  function feltTexture() {
-    const c = canvas(512), g = c.getContext('2d');
-    noiseFill(g, 512, 512, '#1d6b45', 0.16, 60000, 1.4);
-    for (let i = 0; i < 2500; i++) {          // fuzzy fibres
-      g.strokeStyle = `rgba(${Math.random() > 0.5 ? '140,230,170' : '5,40,20'},${0.06 + Math.random() * 0.08})`;
-      g.lineWidth = 0.7;
-      const x = Math.random() * 512, y = Math.random() * 512, a = Math.random() * Math.PI * 2, l = 2 + Math.random() * 5;
-      g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
-    }
-    return tex(c, { repeat: 6 });
-  }
-
-  function envTexture() {
-    // A dim room: navy walls, a warm candle-lit band, the green table below.
-    const c = canvas(512, 256), g = c.getContext('2d');
-    const sky = g.createLinearGradient(0, 0, 0, 256);
-    sky.addColorStop(0, '#5a6aa0'); sky.addColorStop(0.3, '#2c3768'); sky.addColorStop(0.44, '#6a5a52'); sky.addColorStop(0.5, '#b79a62');
-    sky.addColorStop(0.56, '#1c4a33'); sky.addColorStop(1, '#0b2418');
-    g.fillStyle = sky; g.fillRect(0, 0, 512, 256);
-    for (let i = 0; i < 9; i++) {              // candle glows
-      const x = 40 + i * 54, y = 98;
-      const r = g.createRadialGradient(x, y, 0, x, y, 26);
-      r.addColorStop(0, 'rgba(255,230,170,1)'); r.addColorStop(0.3, 'rgba(255,190,90,0.6)'); r.addColorStop(1, 'rgba(255,170,60,0)');
-      g.fillStyle = r; g.fillRect(x - 30, y - 30, 60, 60);
-    }
-    const top = g.createRadialGradient(256, 0, 0, 256, 0, 140);
-    top.addColorStop(0, 'rgba(255,248,230,1)'); top.addColorStop(1, 'rgba(255,245,220,0)');
-    g.fillStyle = top; g.fillRect(0, 0, 512, 140);
-    for (const x of [96, 416]) {               // two soft windows for metal highlights
-      const w = g.createRadialGradient(x, 60, 0, x, 60, 60);
-      w.addColorStop(0, 'rgba(255,255,255,0.85)'); w.addColorStop(1, 'rgba(255,255,255,0)');
-      g.fillStyle = w; g.fillRect(x - 60, 0, 120, 120);
-    }
-    const t = tex(c);
-    t.mapping = T.EquirectangularReflectionMapping;
-    return t;
-  }
-
-  // ---------- Letter textures (one per skin per letter) ----------
-  const FONT = '"Suez One", "Frank Ruhl Libre", "David", serif';
-  function letterTexture(skin, glyph) {
-    const key = skin.id + glyph + (fontReady ? 'f' : '');
-    if (texCache[key]) return texCache[key];
-    const style = skin.style;
-    const pixel = style === 'pixel';
-    const S = pixel ? 16 : 256;
-    const c = canvas(S), g = c.getContext('2d');
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    const cx = S / 2, cy = S * 0.54;
-
-    if (pixel) {
-      g.font = `bold 15px ${FONT}`;
-      g.fillStyle = '#1b3d1d'; g.fillText(glyph, cx + 1, cy + 1);
-      g.fillStyle = skin.letter; g.fillText(glyph, cx, cy);
-      // Snap to hard pixels: no half-transparent edges.
-      const d = g.getImageData(0, 0, S, S);
-      for (let i = 3; i < d.data.length; i += 4) d.data[i] = d.data[i] > 90 ? 255 : 0;
-      g.putImageData(d, 0, 0);
-      return (texCache[key] = tex(c, { nearest: true }));
-    }
-
-    g.font = `${style === 'cartoon' ? 'bold ' : ''}190px ${FONT}`;
-    if (style === 'paper') {
-      // Hand-drawn marker: wobbly double stroke
-      g.font = `175px ${FONT}`;
-      g.globalAlpha = 0.85; g.fillStyle = skin.letter;
-      g.fillText(glyph, cx + 2, cy + 3);
-      g.globalAlpha = 0.5; g.fillText(glyph, cx - 3, cy - 1);
-      g.globalAlpha = 1; g.strokeStyle = skin.letter; g.lineWidth = 3; g.strokeText(glyph, cx, cy);
-    } else if (style === 'cartoon') {
-      g.lineJoin = 'round'; g.lineWidth = 22; g.strokeStyle = '#1a1a2e'; g.strokeText(glyph, cx, cy);
-      g.fillStyle = skin.letter; g.fillText(glyph, cx, cy);
-    } else if (style === 'anime') {
-      g.lineJoin = 'round'; g.lineWidth = 14; g.strokeStyle = '#ffffff'; g.strokeText(glyph, cx, cy);
-      g.fillStyle = skin.letter; g.fillText(glyph, cx, cy);
-      g.fillStyle = '#ffffff';
-      star(g, 200, 60, 16); star(g, 58, 196, 10);
-    } else if (style === 'neon' || style === 'glass' || style === 'gem') {
-      g.shadowColor = skin.letter; g.shadowBlur = style === 'neon' ? 28 : 12;
-      g.fillStyle = skin.letter; g.fillText(glyph, cx, cy); g.fillText(glyph, cx, cy);
-    } else if (style === 'stone' || style === 'clay') {
-      // Carved: dark inner shadow + light lip
-      g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillText(glyph, cx + 3, cy + 4);
-      g.fillStyle = skin.letter; g.fillText(glyph, cx, cy);
-      g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillText(glyph, cx - 2, cy - 2);
-    } else if (style === 'metal' || style === 'foil') {
-      g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillText(glyph, cx - 2, cy - 2);
-      g.fillStyle = skin.letter; g.fillText(glyph, cx + 1, cy + 1);
-    } else {
-      g.fillStyle = skin.letter; g.fillText(glyph, cx, cy);
-    }
-    return (texCache[key] = tex(c));
-  }
-
+  const canvas = Gfx.canvas;
+  const tex = (c, o = {}) => Gfx.tex(c, Object.assign({ aniso: 4 }, o, o.repeat ? { repeat: [o.repeat, o.repeat] } : {}));
   function star(g, x, y, r) {
     g.beginPath();
-    for (let i = 0; i < 8; i++) {
-      const a = i * Math.PI / 4, rr = i % 2 ? r * 0.3 : r;
-      g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
-    }
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r * 0.3 : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
     g.closePath(); g.fill();
   }
 
-  // ---------- Body textures per style ----------
-  function bodyTexture(skin) {
-    const key = 'body-' + skin.id;
-    if (texCache[key]) return texCache[key];
-    const st = skin.style;
-    let c, g, t;
-    if (st === 'real') {
-      c = canvas(256); g = c.getContext('2d');
-      g.fillStyle = skin.body; g.fillRect(0, 0, 256, 256);
-      for (let y = 0; y < 256; y += 2) {          // wood grain
-        const w = Math.sin(y * 0.08) * 6 + Math.sin(y * 0.31) * 2;
-        g.fillStyle = `rgba(60,30,10,${0.05 + 0.12 * Math.abs(Math.sin(y * 0.17 + w))})`;
-        g.fillRect(0, y + w * 0.2, 256, 1.5);
-      }
-      noiseFill2(g, 256, 0.05, 3000);
-      t = tex(c);
-    } else if (st === 'paper') {
-      c = canvas(256); g = c.getContext('2d');
-      noiseFill(g, 256, 256, skin.body, 0.05, 9000, 1);
-      g.strokeStyle = 'rgba(120,100,70,0.35)'; g.lineWidth = 1.2;
-      g.beginPath(); g.moveTo(0, 0); g.lineTo(256, 256); g.moveTo(256, 0); g.lineTo(0, 256); g.stroke();   // fold lines
-      g.strokeStyle = 'rgba(80,60,40,0.5)'; g.lineWidth = 4; g.strokeRect(2, 2, 252, 252);
-      t = tex(c);
-    } else if (st === 'clay') {
-      c = canvas(256); g = c.getContext('2d');
-      noiseFill(g, 256, 256, skin.body, 0.12, 6000, 3);
-      for (let i = 0; i < 14; i++) {              // fingerprints
-        g.strokeStyle = 'rgba(0,0,0,0.06)'; g.lineWidth = 1.5;
-        const x = Math.random() * 256, y = Math.random() * 256;
-        for (let r = 4; r < 22; r += 4) { g.beginPath(); g.ellipse(x, y, r, r * 0.7, Math.random(), 0, Math.PI * 2); g.stroke(); }
-      }
-      t = tex(c);
-    } else if (st === 'hive') {
-      c = canvas(256); g = c.getContext('2d');
-      g.fillStyle = '#c98a00'; g.fillRect(0, 0, 256, 256);
-      const r = 18, hh = r * Math.sqrt(3);
-      for (let row = -1; row < 10; row++) for (let col = -1; col < 10; col++) {
-        const x = col * r * 1.5 * 1.0 + 0, y = row * hh + (col % 2 ? hh / 2 : 0);
-        g.beginPath();
-        for (let i = 0; i < 6; i++) { const a = Math.PI / 3 * i; g.lineTo(x + Math.cos(a) * (r - 2.5), y + Math.sin(a) * (r - 2.5)); }
-        g.closePath();
-        const grd = g.createRadialGradient(x - 4, y - 4, 1, x, y, r);
-        grd.addColorStop(0, '#ffd866'); grd.addColorStop(1, skin.body);
-        g.fillStyle = grd; g.fill();
-      }
-      t = tex(c);
-    } else if (st === 'stone') {
-      c = canvas(256); g = c.getContext('2d');
-      noiseFill(g, 256, 256, skin.body, 0.1, 12000, 2);
-      g.strokeStyle = 'rgba(110,90,60,0.35)'; g.lineWidth = 3;
-      g.strokeRect(10, 10, 236, 236);             // chiselled margin, like Herodian ashlars
-      g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 2; g.strokeRect(14, 14, 228, 228);
-      t = tex(c);
-    } else if (st === 'pixel') {
-      c = canvas(16); g = c.getContext('2d');
-      const shades = ['#4cb050', '#43a047', '#5cbf60', '#388e3c'];
-      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { g.fillStyle = shades[Math.floor(Math.random() * 4)]; g.fillRect(x, y, 1, 1); }
-      g.fillStyle = '#2e7d32'; g.fillRect(0, 0, 16, 1); g.fillRect(0, 15, 16, 1); g.fillRect(0, 0, 1, 16); g.fillRect(15, 0, 1, 16);
-      t = tex(c, { nearest: true });
-    } else if (st === 'neon') {
-      c = canvas(256); g = c.getContext('2d');
-      g.fillStyle = '#000'; g.fillRect(0, 0, 256, 256);
-      g.shadowColor = skin.edge; g.shadowBlur = 18; g.strokeStyle = skin.edge; g.lineWidth = 8;
-      g.strokeRect(10, 10, 236, 236); g.strokeRect(10, 10, 236, 236);
-      t = tex(c);
-    } else if (st === 'foil') {
-      c = canvas(256); g = c.getContext('2d');
-      noiseFill(g, 256, 256, '#808080', 0.5, 5000, 4);   // crinkles, used as a bump map
-      t = tex(c, { srgb: false });
-    } else {
-      return null;
-    }
-    return (texCache[key] = t);
+  // ---------- Table surfaces ----------
+  // Felt: green fibres, with a fuzzy relief map so the sheen catches the light.
+  function feltMaps() {
+    const S = 512;
+    const H = new Float32Array(S * S);
+    const color = Gfx.paint(S, (u, v, x, y) => {
+      const n = Gfx.noise(u * 256, v * 256, 256), m = Gfx.fbm(u, v, 3, 8);
+      H[y * S + x] = n * 0.8 + m * 0.2;
+      return Gfx.mixRGB([26, 100, 64], [36, 122, 78], n * 0.7 + m * 0.3);
+    });
+    return { map: tex(color, { repeat: 6 }), normal: (() => { const t = Gfx.tex(Gfx.normalMap(H, S, 1.6, true), { srgb: false, repeat: [6, 6] }); return t; })() };
   }
-  function noiseFill2(g, s, amt, n) {
-    for (let i = 0; i < n; i++) { g.fillStyle = `rgba(0,0,0,${amt * Math.random()})`; g.fillRect(Math.random() * s, Math.random() * s, 2, 1); }
+  // Rail leather and racetrack wood.
+  function leatherNormal() {
+    const S = 256, H = new Float32Array(S * S);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) H[y * S + x] = Gfx.fbm(x / S, y / S, 4, 16);
+    return Gfx.tex(Gfx.normalMap(H, S, 2.2, true), { srgb: false, repeat: [24, 2] });
   }
-
-  function toonGradient(steps) {
-    const data = new Uint8Array(steps.length * 4);
-    steps.forEach((v, i) => { data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = v; data[i * 4 + 3] = 255; });
-    const t = new T.DataTexture(data, steps.length, 1, T.RGBAFormat);
-    t.minFilter = t.magFilter = T.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
-    return t;
-  }
-
-  // ---------- Materials per style ----------
-  function materials(skin) {
-    const st = skin.style, body = new T.Color(skin.body), edge = new T.Color(skin.edge);
-    const map = bodyTexture(skin);
-    let b, h, outline = null, letterBasic = false;
-    switch (st) {
-      case 'real':
-        b = new T.MeshPhysicalMaterial({ color: 0xffffff, map, roughness: 0.45, clearcoat: 0.6, clearcoatRoughness: 0.3 });
-        h = new T.MeshPhysicalMaterial({ color: edge, roughness: 0.4, clearcoat: 0.6 });
-        break;
-      case 'plastic':
-        b = new T.MeshPhysicalMaterial({ color: body, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.1 });
-        h = new T.MeshPhysicalMaterial({ color: edge, roughness: 0.25, clearcoat: 1 });
-        break;
-      case 'paper':
-        b = new T.MeshStandardMaterial({ color: 0xffffff, map, roughness: 1, flatShading: true });
-        h = new T.MeshStandardMaterial({ color: new T.Color('#e9dfc8'), roughness: 1, flatShading: true });
-        break;
-      case 'cartoon': {
-        const grad = toonGradient([90, 180, 255]);
-        b = new T.MeshToonMaterial({ color: body, gradientMap: grad });
-        h = new T.MeshToonMaterial({ color: edge, gradientMap: grad });
-        outline = '#1a1a2e';
-        break;
-      }
-      case 'anime': {
-        const grad = toonGradient([170, 255]);
-        b = new T.MeshToonMaterial({ color: body, gradientMap: grad });
-        h = new T.MeshToonMaterial({ color: edge, gradientMap: grad });
-        outline = '#3a2a7a';
-        break;
-      }
-      case 'clay':
-        b = new T.MeshStandardMaterial({ color: 0xffffff, map, roughness: 0.95 });
-        h = new T.MeshStandardMaterial({ color: edge, roughness: 0.95 });
-        break;
-      case 'metal':
-        b = new T.MeshStandardMaterial({ color: body, metalness: skin.id === 'gold' ? 1 : 0.85, roughness: skin.id === 'gold' ? 0.22 : 0.24, envMapIntensity: skin.id === 'gold' ? 1.3 : 1.7 });
-        h = new T.MeshStandardMaterial({ color: edge, metalness: 1, roughness: 0.25, envMapIntensity: 1.3 });
-        break;
-      case 'foil':
-        b = new T.MeshStandardMaterial({ color: body, metalness: 1, roughness: 0.3, bumpMap: map, bumpScale: 0.6, envMapIntensity: 1.4 });
-        h = new T.MeshStandardMaterial({ color: new T.Color('#6b3f1d'), roughness: 0.6 });   // chocolate showing
-        break;
-      case 'glass':
-        b = new T.MeshPhysicalMaterial({ color: body, transmission: 1, thickness: 0.8, roughness: 0.04, ior: 1.5, attenuationColor: new T.Color('#5fb6ef'), attenuationDistance: 1.5, envMapIntensity: 1.5 });
-        h = b;
-        letterBasic = true;
-        break;
-      case 'gem':
-        b = new T.MeshPhysicalMaterial({ color: body, transmission: 1, thickness: 1.2, roughness: 0, ior: 2.4, iridescence: 1, iridescenceIOR: 1.6, flatShading: true, envMapIntensity: 2 });
-        h = b;
-        letterBasic = true;
-        break;
-      case 'neon':
-        b = new T.MeshStandardMaterial({ color: body, roughness: 0.4, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 1.4 });
-        h = new T.MeshStandardMaterial({ color: body, emissive: edge, emissiveIntensity: 1.2 });
-        letterBasic = true;
-        break;
-      case 'hive':
-        b = new T.MeshStandardMaterial({ color: 0xffffff, map, roughness: 0.45 });
-        h = new T.MeshStandardMaterial({ color: edge, roughness: 0.5 });
-        break;
-      case 'stone':
-        b = new T.MeshStandardMaterial({ color: 0xffffff, map, roughness: 0.9 });
-        h = new T.MeshStandardMaterial({ color: body, roughness: 0.9 });
-        break;
-      case 'pixel':
-        b = new T.MeshLambertMaterial({ map });
-        h = new T.MeshLambertMaterial({ color: new T.Color('#8d6e63') });
-        break;
-      default:
-        b = new T.MeshStandardMaterial({ color: body });
-        h = new T.MeshStandardMaterial({ color: edge });
-    }
-    return { b, h, outline, letterBasic };
-  }
-
-  // ---------- Model ----------
-  function buildModel(skin) {
-    const g = new T.Group();
-    const m = materials(skin);
-    const parts = [];
-    const add = (geo, mat, y) => {
-      const mesh = new T.Mesh(geo, mat);
-      mesh.position.y = y; mesh.castShadow = true;
-      g.add(mesh); parts.push(mesh);
-      return mesh;
-    };
-
-    let bodyGeo = new T.BoxGeometry(W, BODY_H, W, skin.style === 'clay' ? 6 : 1, skin.style === 'clay' ? 6 : 1, skin.style === 'clay' ? 6 : 1);
-    if (skin.style === 'clay') lumpy(bodyGeo, 0.03);
-    add(bodyGeo, m.b, BODY_Y);
-
-    if (skin.style === 'pixel') {
-      // Stepped tip and square handle
-      const steps = 4;
-      for (let i = 0; i < steps; i++) {
-        const s = W * (1 - (i + 1) / (steps + 0.6));
-        add(new T.BoxGeometry(s, TIP_H / steps, s), m.b, TIP_H - (i + 0.5) * TIP_H / steps);
-      }
-      add(new T.BoxGeometry(HANDLE_R * 2.2, HANDLE_H, HANDLE_R * 2.2), m.h, TOP_Y + HANDLE_H / 2);
-      add(new T.BoxGeometry(KNOB_R * 2, KNOB_R * 1.4, KNOB_R * 2), m.h, TOP_Y + HANDLE_H);
-    } else {
-      const tipGeo = new T.ConeGeometry(W / Math.SQRT2, TIP_H, 4, 1);
-      tipGeo.rotateY(Math.PI / 4);
-      tipGeo.rotateX(Math.PI);     // point down
-      add(tipGeo, m.b, TIP_H / 2);
-      add(new T.CylinderGeometry(HANDLE_R, HANDLE_R * 1.15, HANDLE_H, 20), m.h, TOP_Y + HANDLE_H / 2);
-      add(new T.SphereGeometry(KNOB_R, 20, 14), m.h, TOP_Y + HANDLE_H);
-      add(new T.CylinderGeometry(W * 0.32, W * 0.36, 0.05, 24), m.h, TOP_Y + 0.025);   // collar
-    }
-
-    if (m.outline) {
-      const om = new T.MeshBasicMaterial({ color: new T.Color(m.outline), side: T.BackSide });
-      for (const p of parts.slice()) {
-        const o = new T.Mesh(p.geometry, om);
-        o.position.copy(p.position);
-        o.scale.setScalar(skin.style === 'cartoon' ? 1.07 : 1.045);
-        g.add(o);
-      }
-    }
-
-    // Letters on the four faces
-    const letters = C.letters;
-    for (let k = 0; k < 4; k++) {
-      const glyph = I18N.glyph(letters[k], inIsrael);
-      const lt = letterTexture(skin, glyph);
-      // Glowing and flat-coloured styles keep letters unlit so they read clearly.
-      const unlit = m.letterBasic || ['cartoon', 'anime', 'pixel'].includes(skin.style);
-      const lm = unlit
-        ? new T.MeshBasicMaterial({ map: lt, transparent: true, depthWrite: false, toneMapped: !m.letterBasic })
-        : new T.MeshStandardMaterial({ map: lt, transparent: true, depthWrite: false, roughness: skin.style === 'metal' ? 0.45 : 0.7, metalness: skin.style === 'metal' || skin.style === 'foil' ? 0.6 : 0 });
-      const plane = new T.Mesh(new T.PlaneGeometry(W * 0.88, W * 0.88), lm);
-      const a = FACE_ANGLE[k];
-      plane.position.set(Math.sin(a) * (W / 2 + 0.004), BODY_Y, Math.cos(a) * (W / 2 + 0.004));
-      plane.rotation.y = a;
-      plane.renderOrder = 2;
-      g.add(plane);
-    }
-    return g;
-  }
-
-  function lumpy(geo, amt) {
-    const p = geo.attributes.position;
-    for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-      const n = Math.sin(x * 9 + y * 7) * Math.cos(z * 8 - y * 5) * amt;
-      p.setXYZ(i, x * (1 + n), y + n * 0.3, z * (1 + n));
-    }
-    geo.computeVertexNormals();
+  function woodRing() {
+    const S = 512;
+    return Gfx.tex(Gfx.paint(S, (u, v) => {
+      const w = Gfx.fbm(u, v, 4, 2), g = v * 10 + w * 2.5, f = g - Math.floor(g);
+      const streak = f < 0.12 ? 1 - f / 0.12 : 0;
+      return Gfx.mixRGB([150, 92, 50], [92, 50, 24], Math.min(1, streak * 0.6 + w * 0.5));
+    }), { repeat: [16, 1] });
   }
 
   // ---------- Particles for spin effects ----------
@@ -505,8 +176,7 @@ const Dreidel3D = (function () {
     scene = new T.Scene();
     camera = new T.PerspectiveCamera(38, 1, 0.1, 100);
 
-    const pm = new T.PMREMGenerator(renderer);
-    envTex = pm.fromEquirectangular(envTexture()).texture;
+    envTex = Gfx.roomEnvironment(renderer);
     scene.environment = envTex;
 
     scene.add(new T.HemisphereLight(0xffe9c4, 0x0b1630, 0.9));
@@ -525,7 +195,10 @@ const Dreidel3D = (function () {
     warm.position.set(0, 3, -5);
     scene.add(warm);
 
-    feltMat = new T.MeshPhysicalMaterial({ color: 0xffffff, map: feltTexture(), roughness: 1, sheen: 1, sheenColor: new T.Color('#7fe0a8'), sheenRoughness: 0.55 });
+    const felt = feltMaps();
+    feltMat = new T.MeshPhysicalMaterial({ color: 0xffffff, map: felt.map, normalMap: felt.normal, normalScale: new T.Vector2(0.6, 0.6), roughness: 1, sheen: 1, sheenColor: new T.Color('#86e8b0'), sheenRoughness: 0.5, envMapIntensity: 0.4 });
+    railMat = new T.MeshPhysicalMaterial({ color: new T.Color('#101d4a'), roughness: 0.48, normalMap: leatherNormal(), normalScale: new T.Vector2(0.5, 0.5), clearcoat: 0.6, clearcoatRoughness: 0.35, sheen: 0.4, sheenColor: new T.Color('#3550a8'), envMapIntensity: 0.55 });
+    woodMat = new T.MeshPhysicalMaterial({ map: woodRing(), roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 0.9 });
 
     pivot = new T.Group();
     pivot.scale.setScalar(SCALE);
@@ -533,7 +206,7 @@ const Dreidel3D = (function () {
     pivot.add(flip);
     scene.add(pivot);
 
-    shadowDisc = new T.Mesh(new T.CircleGeometry(0.75, 32), new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
+    shadowDisc = new T.Mesh(new T.PlaneGeometry(2.2, 2.2), new T.MeshBasicMaterial({ map: Gfx.contactShadow(), transparent: true, opacity: 0.6, depthWrite: false }));
     shadowDisc.rotation.x = -Math.PI / 2;
     shadowDisc.position.y = 0.003;
     scene.add(shadowDisc);
@@ -552,17 +225,18 @@ const Dreidel3D = (function () {
     requestAnimationFrame(loop);
 
     if (document.fonts && document.fonts.load) {
-      document.fonts.load('190px "Suez One"').then(() => { fontReady = true; setSkin(skinId, true); }).catch(() => {});
+      document.fonts.load('190px "Suez One"').then(() => { M.setFontReady(true); setSkin(skinId, true); }).catch(() => {});
     }
     return true;
   }
 
   function buildTable() {
-    for (const o of [table, rail, trim, vignette]) if (o) { scene.remove(o); o.geometry.dispose(); }
-    const felt = new T.CircleGeometry(1, 96);
-    table = new T.Mesh(felt, feltMat);
+    for (const o of [table, rail, trim, vignette, track]) if (o) { scene.remove(o); o.geometry.dispose(); }
+    // Felt, then a varnished wooden racetrack, then the padded rail (like a real poker table).
+    const TR = 0.32;   // racetrack width
+    table = new T.Mesh(new T.CircleGeometry(1, 96), feltMat);
     table.rotation.x = -Math.PI / 2;
-    table.scale.set(rx, rz, 1);
+    table.scale.set(rx - TR, rz - TR, 1);
     table.receiveShadow = true;
     scene.add(table);
 
@@ -577,14 +251,28 @@ const Dreidel3D = (function () {
     grd.addColorStop(0, 'rgba(0,0,0,0)'); grd.addColorStop(0.55, 'rgba(0,0,0,0.05)'); grd.addColorStop(1, 'rgba(0,10,5,0.55)');
     vg.fillStyle = grd; vg.fillRect(0, 0, 256, 256);
     vignette = new T.Mesh(new T.CircleGeometry(1, 96), new T.MeshBasicMaterial({ map: tex(vc), transparent: true, depthWrite: false }));
-    vignette.rotation.x = -Math.PI / 2; vignette.position.y = 0.002; vignette.scale.set(rx, rz, 1);
+    vignette.rotation.x = -Math.PI / 2; vignette.position.y = 0.002; vignette.scale.set(rx - TR, rz - TR, 1);
     scene.add(vignette);
 
-    rail = new T.Mesh(new T.TubeGeometry(ring(rx + 0.2, rz + 0.2, 0.12), 200, 0.26, 18, true),
-      new T.MeshPhysicalMaterial({ color: new T.Color('#0f1c46'), roughness: 0.55, clearcoat: 0.5, clearcoatRoughness: 0.45, envMapIntensity: 0.5 }));
+    // Racetrack: a flat elliptical band between the felt and the rail
+    const tg = new T.BufferGeometry(), tp = [], tu = [], ti = [];
+    const SEG = 160;
+    for (let i = 0; i <= SEG; i++) {
+      const a = i / SEG * Math.PI * 2, c = Math.cos(a), s2 = Math.sin(a);
+      tp.push(c * (rx - TR), 0.012, s2 * (rz - TR), c * (rx + 0.02), 0.012, s2 * (rz + 0.02));
+      tu.push(i / SEG, 0, i / SEG, 1);
+      if (i < SEG) { const k = i * 2; ti.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }   // facing up
+    }
+    tg.setAttribute('position', new T.Float32BufferAttribute(tp, 3));
+    tg.setAttribute('uv', new T.Float32BufferAttribute(tu, 2));
+    tg.setIndex(ti); tg.computeVertexNormals();
+    track = new T.Mesh(tg, woodMat);
+    track.receiveShadow = true;
+    scene.add(track);
+    rail = new T.Mesh(new T.TubeGeometry(ring(rx + 0.2, rz + 0.2, 0.12), 220, 0.26, 20, true), railMat);
     rail.castShadow = true; rail.receiveShadow = true;
     scene.add(rail);
-    trim = new T.Mesh(new T.TubeGeometry(ring(rx - 0.03, rz - 0.03, 0.035), 200, 0.05, 8, true),
+    trim = new T.Mesh(new T.TubeGeometry(ring(rx - TR, rz - TR, 0.03), 220, 0.035, 8, true),
       new T.MeshStandardMaterial({ color: new T.Color('#e9b949'), metalness: 1, roughness: 0.28, envMapIntensity: 1.3 }));
     scene.add(trim);
   }
@@ -633,14 +321,17 @@ const Dreidel3D = (function () {
     if (id === skinId && model && !force) return;
     skinId = id;
     if (model) { flip.remove(model); disposeTree(model); }
-    model = buildModel(getSkin(id));
+    model = M.build(getSkin(id), inIsrael);
     flip.add(model);
   }
-  // Free geometry and materials (textures are cached and shared, so they stay).
+  // Free GPU memory for a model we no longer show (shared geometry is re-uploaded if used again).
   function disposeTree(o) {
     o.traverse(n => {
       if (n.geometry) n.geometry.dispose();
-      if (n.material) [].concat(n.material).forEach(m => m.dispose());
+      if (n.material) [].concat(n.material).forEach(m => {
+        for (const k of ['map', 'normalMap', 'roughnessMap', 'emissiveMap']) if (m[k]) m[k].dispose();
+        m.dispose();
+      });
     });
   }
   function setLetters(isr) {
@@ -657,12 +348,7 @@ const Dreidel3D = (function () {
   };
   const qYaw = new T.Quaternion(), qTilt = new T.Quaternion(), vAxis = new T.Vector3();
   const tmpV = new T.Vector3(), tmpM = new T.Matrix4();
-  const HULL = (() => {
-    const p = [new T.Vector3(0, 0, 0), new T.Vector3(0, FULL_H, 0)];
-    for (const y of [TIP_H, TOP_Y]) for (const x of [-W / 2, W / 2]) for (const z of [-W / 2, W / 2]) p.push(new T.Vector3(x, y, z));
-    for (const a of [0, 1, 2, 3]) p.push(new T.Vector3(Math.cos(a * Math.PI / 2) * KNOB_R, TOP_Y + HANDLE_H, Math.sin(a * Math.PI / 2) * KNOB_R));
-    return p;
-  })();
+  const HULL = M.HULL.map(p => new T.Vector3(...p));
 
   function setPose(yaw, tiltAxisAngle, tilt, x, z, upside) {
     qYaw.setFromAxisAngle(vAxis.set(0, 1, 0), yaw);
@@ -820,39 +506,60 @@ const Dreidel3D = (function () {
   // ---------- Skin thumbnails for the picker ----------
   let thumbR = null, thumbScene = null, thumbCam = null;
   function thumbnail(id, size = 140) {
-    const key = 'thumb-' + id + (inIsrael ? 'p' : 's') + (fontReady ? 'f' : '');
+    const key = 'thumb-' + id + (inIsrael ? 'p' : 's') + (M.fontReady ? 'f' : '');
     if (texCache[key]) return texCache[key];
+    // Finished thumbnails are kept on the device, so the picker is instant next time.
+    const store = 'mackabee_thumb_v3_' + key + '_' + size;
+    try { const saved = localStorage.getItem(store); if (saved) return (texCache[key] = saved); } catch (e) { /* storage blocked */ }
     if (!T) return '';
     try {
       if (!thumbR) {
-        thumbR = new T.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+        thumbR = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
         thumbR.outputColorSpace = T.SRGBColorSpace;
         thumbR.toneMapping = T.ACESFilmicToneMapping;
       }
-      thumbR.setPixelRatio(1);
+      thumbR.setPixelRatio(2);   // render at 2x so thumbnails stay crisp on phones
       thumbR.setSize(size, size, false);
       if (!thumbScene) {   // one scene and lighting for every thumbnail
         thumbScene = new T.Scene();
-        thumbScene.environment = new T.PMREMGenerator(thumbR).fromEquirectangular(envTexture()).texture;
-        thumbScene.add(new T.HemisphereLight(0xffe9c4, 0x0b1630, 1.1));
-        const dl = new T.DirectionalLight(0xfff1d6, 2.4); dl.position.set(2, 4, 3); thumbScene.add(dl);
-        thumbCam = new T.PerspectiveCamera(32, 1, 0.1, 50);
-        thumbCam.position.set(2.4, 2.4, 3.6); thumbCam.lookAt(0, 1.0, 0);
+        // A felt backdrop, so see-through dreidels have something to refract
+        const bc = canvas(256), bg = bc.getContext('2d'), gr = bg.createRadialGradient(128, 110, 10, 128, 128, 180);
+        gr.addColorStop(0, '#2f9462'); gr.addColorStop(0.6, '#1d6b45'); gr.addColorStop(1, '#0f3d27');
+        bg.fillStyle = gr; bg.fillRect(0, 0, 256, 256);
+        thumbScene.background = tex(bc);
+        thumbScene.environment = Gfx.roomEnvironment(thumbR);
+        thumbScene.add(new T.HemisphereLight(0xffe9c4, 0x0b1630, 0.7));
+        const dl = new T.DirectionalLight(0xfff1d6, 2.2); dl.position.set(2.5, 4, 3.5); thumbScene.add(dl);
+        const rim = new T.DirectionalLight(0x9fc0ff, 1.2); rim.position.set(-3, 2, -2); thumbScene.add(rim);
+        thumbCam = new T.PerspectiveCamera(30, 1, 0.1, 50);
+        thumbCam.position.set(2.5, 2.3, 3.7); thumbCam.lookAt(0, 1.08, 0);
       }
-      const m = buildModel(getSkin(id));
+      const m = M.build(getSkin(id), inIsrael, { small: true });
       m.rotation.y = -0.55;
       m.rotation.z = 0.12;
       thumbScene.add(m);
       thumbR.render(thumbScene, thumbCam);
-      const url = thumbR.domElement.toDataURL('image/png');
+      const url = thumbR.domElement.toDataURL('image/jpeg', 0.86);
       thumbScene.remove(m);
       disposeTree(m);
+      if (M.fontReady) { try { localStorage.setItem(store, url); } catch (e) { /* full or blocked */ } }
       return (texCache[key] = url);
     } catch (e) { return ''; }
   }
 
+  // Prepare these skins' textures in idle moments so turns don't stutter.
+  function warmSkins(ids) {
+    const queue = [...new Set(ids)].map(getSkin);
+    const next = () => {
+      const sk = queue.shift(); if (!sk) return;
+      M.warm(sk, inIsrael);
+      (window.requestIdleCallback || setTimeout)(next, { timeout: 500 });
+    };
+    (window.requestIdleCallback || setTimeout)(next, { timeout: 500 });
+  }
+
   return {
-    init, setSkin, setLetters, spin, idle, standUp, seatAnchors, centerScreen, tableCenter, headScreen, onLayout, thumbnail,
+    init, setSkin, warmSkins, setLetters, spin, idle, standUp, seatAnchors, centerScreen, tableCenter, headScreen, onLayout, thumbnail,
     get ready() { return !!renderer; },
   };
 })();

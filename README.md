@@ -48,9 +48,12 @@ Until that config is filled in, online buttons explain that online play isn't se
 | `js/rules.js` | Pure game logic (the referee). Unit-tested |
 | `js/room.js` | Local games and online rooms; referee, bots, host handoff |
 | `js/net.js` | Firebase backend, plus the `?net=local` backend for tabs |
-| `js/dreidel3d.js` | Three.js table, dreidel skins, spin and landing |
+| `js/gfx.js` | Procedural graphics: noise, surface relief (normal maps), a lit room for reflections |
+| `js/dreidel-model.js` | Dreidel models: rounded body, turned handle, carved/engraved letters, 15 materials |
+| `js/dreidel3d.js` | The table scene (felt, wooden racetrack, padded rail), spin and landing |
 | `js/meter.js` | Skill meter |
-| `js/mack.js` | Mack the bee (SVG, expressions, speech bubbles) |
+| `js/mack3d.js` | Mack in 3D: fur, glossy eyes, gold helmet and plume, wings, shield, moods |
+| `js/mack.js` | Mack's speech bubbles and reactions; falls back to a drawn Mack without 3D |
 | `js/trivia.js`, `data/questions-*.js` | Question picking and the sourced question bank (150 questions) |
 | `js/app.js` | Screens and game flow |
 | `js/i18n.js` | English and Hebrew text |

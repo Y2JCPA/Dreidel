@@ -153,7 +153,7 @@ Mack is a round, fuzzy, friendly bee in a little Maccabee helmet with a tiny shi
 - **Banker:** coins fly from and to his honey pot on every payout. In Classic mode the pot *is* his honey pot.
 - **Quizmaster:** he pops up with "Buzz Quiz!" for trivia, then reveals the answer and the source.
 - **Reactions:** cheer (Gimel / Perfect), wink (Hey), shrug (Nun), gasp (Shin/Pey), sneaky grin (a steal), trophy dance (winner).
-- **Art:** drawn as an animated SVG in code (flapping wings, bobbing, expression changes), so there are no image files and he looks sharp at any size. ❓ He could also make a small 3D cameo, buzzing around the spinning dreidel.
+- **Art:** a real-time 3D character built in code: layered fur, glossy eyes, a polished gold helmet with a blue plume crest, see-through rainbow wings and a shield with a Magen David. He bobs, flaps, blinks and changes expression. Devices without 3D get a drawn (SVG) Mack instead.
 - **Lines:** a pool of short, varied lines in English and Hebrew so he doesn't repeat himself. He talks more at the start and gets quieter as the game moves on.
 - **Hebrew name:** **מַכַּבִּי הַדְּבוֹרָה** ("Makabi the bee"). In Hebrew the pun works by sound: *Makabi* = מכבי.
 

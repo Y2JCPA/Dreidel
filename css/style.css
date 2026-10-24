@@ -154,7 +154,7 @@ button { cursor: pointer; }
   box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.08);
   color: var(--cream); font-size: 0.82rem; font-weight: 500; text-align: center;
 }
-.skin img { width: 76px; height: 76px; object-fit: contain; }
+.skin img { width: 84px; height: 84px; object-fit: cover; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 .skin[aria-pressed="true"] { box-shadow: inset 0 0 0 3px var(--gold), 0 0 18px rgba(233,185,73,0.35); }
 .skin.locked img { filter: grayscale(1) brightness(0.45); }
 .skin .lock { font-size: 0.72rem; color: var(--gold-hi); line-height: 1.2; }
@@ -401,6 +401,11 @@ input[type="range"].bet-slider { flex: 1; min-width: 0; accent-color: var(--gold
 .mack-svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .mack .wing { transform-box: fill-box; transform-origin: 50% 90%; animation: flap 0.16s ease-in-out infinite alternate; }
 .mack .wing-r { animation-delay: 0.08s; }
+/* 3D Mack: the canvas does its own animation */
+.mack-3d .mack-body, .mack-3d .mack-body[class*="a-"] { animation: none; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.35)); }
+.mack-canvas { display: block; width: 100%; height: 100%; }
+.mack-3d.mack-big .mack-body { width: 210px; height: 220px; }
+.mack-3d.mack-corner .mack-body { width: 64px; height: 66px; margin: -6px -4px -4px; }
 @keyframes flap { from { transform: scaleY(1); } to { transform: scaleY(0.55); } }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 .mack .eye { transform-box: fill-box; transform-origin: center; transition: transform 0.06s; }
@@ -433,7 +438,7 @@ input[type="range"].bet-slider { flex: 1; min-width: 0; accent-color: var(--gold
   overflow-y: auto;
 }
 .overlay.dim { background: rgba(4, 8, 22, 0.72); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
-#ov-intro { background: radial-gradient(100% 70% at 50% 20%, rgba(255, 190, 90, 0.16), transparent 60%), rgba(4, 8, 22, 0.985); }
+#ov-intro { background: radial-gradient(100% 70% at 50% 20%, rgba(255, 190, 90, 0.16), transparent 60%), #040816; }
 .intro { width: 100%; max-width: 480px; display: flex; flex-direction: column; align-items: center; gap: 4px; margin: auto; }
 .overlay > * { margin: auto; flex: none; }
 .intro-card, .menu-card, .pass-card, .quiz, .over {

@@ -93,30 +93,34 @@ const Mack = (function () {
   function create(el, { corner = false } = {}) {
     const id = ++uid;
     el.classList.add('mack', corner ? 'mack-corner' : 'mack-big');
-    el.innerHTML = `<div class="mack-body">${svg(id)}</div><div class="mack-bubble" role="status" aria-live="polite" hidden></div>`;
-    const eyes = el.querySelector('.mack-eyes');
-    const mouth = el.querySelector('.mack-mouth');
+    el.innerHTML = `<div class="mack-body"></div><div class="mack-bubble" role="status" aria-live="polite" hidden></div>`;
     const bubble = el.querySelector('.mack-bubble');
     const body = el.querySelector('.mack-body');
     let moodTimer = 0, bubbleTimer = 0, quiet = false, pokes = 0, pokeTimer = 0;
 
-    function setMood(name) {
-      const [e, m] = MOODS[name] || MOODS.happy;
-      eyes.innerHTML = EYES[e];
-      mouth.innerHTML = MOUTH[m];
+    // The 3D Mack when the device can draw it; the drawn (SVG) Mack otherwise.
+    const m3 = typeof Mack3D !== 'undefined' && Mack3D.available ? Mack3D.create(body, { portrait: corner }) : null;
+    let setMood;
+    if (m3) {
+      el.classList.add('mack-3d');
+      setMood = name => m3.setMood(name);
+    } else {
+      body.innerHTML = svg(id);
+      const eyes = el.querySelector('.mack-eyes'), mouth = el.querySelector('.mack-mouth');
+      setMood = name => { const [e, m] = MOODS[name] || MOODS.happy; eyes.innerHTML = EYES[e]; mouth.innerHTML = MOUTH[m]; };
+      // Blink now and then
+      setInterval(() => {
+        if (document.hidden) return;
+        el.classList.add('blink');
+        setTimeout(() => el.classList.remove('blink'), 140);
+      }, 3800 + Math.random() * 2000);
     }
     setMood('happy');
 
-    // Blink now and then
-    setInterval(() => {
-      if (document.hidden) return;
-      el.classList.add('blink');
-      setTimeout(() => el.classList.remove('blink'), 140);
-    }, 3800 + Math.random() * 2000);
-
     function anim(name) {
+      if (m3) m3.play(name);
       body.classList.remove('a-cheer', 'a-gasp', 'a-loop', 'a-sad');
-      void body.offsetWidth;   // restart the CSS animation
+      void body.offsetWidth;   // restart the CSS animation (drawn Mack)
       body.classList.add('a-' + name);
       setTimeout(() => body.classList.remove('a-' + name), 1300);
     }

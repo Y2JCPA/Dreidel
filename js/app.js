@@ -561,7 +561,10 @@
     const old = force ? prev : S;
     prev = old;
     S = st;
-    if (threeOk) Dreidel3D.setLetters(S.settings.inIsrael);
+    if (threeOk) {
+      Dreidel3D.setLetters(S.settings.inIsrael);
+      if (ui.warmed !== S.gid) { ui.warmed = S.gid; Dreidel3D.warmSkins(S.players.map(p => p.skin)); }
+    }
     renderTop();
     renderSeats();
     if (S.spin && (!old || key(old) !== key(S)) && ui.spinKey !== `${S.gid}:${S.spin.id}`) {
