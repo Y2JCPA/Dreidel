@@ -64,7 +64,7 @@ const Mack3D = (function () {
   }
 
   // ---------- Model ----------
-  const SHELLS = 12, FUR = 0.11;
+  const SHELLS = 10, FUR = 0.11;
   // A furry part: a base mesh plus layered shells whose hairs thin out toward the tips.
   function furry(geo, map, scale = [1, 1, 1]) {
     const grp = new T.Group();
@@ -365,7 +365,10 @@ const Mack3D = (function () {
     requestAnimationFrame(tick);
     for (const inst of instances) {
       if (!visible(inst.el)) continue;
-      if (inst.portrait && (inst.frame++ & 1)) continue;   // the small corner Mack draws at half rate
+      // Mack doesn't need 60 fps: 30 for the big Mack, 20 for the small corner one (saves battery)
+      const gap = inst.portrait ? 48 : 31;
+      if (now - (inst.lastDraw || 0) < gap) continue;
+      inst.lastDraw = now;
       inst.size();
       animate(inst, now);
       inst.renderer.render(inst.scene, inst.camera);

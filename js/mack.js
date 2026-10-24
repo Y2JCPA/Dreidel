@@ -98,22 +98,30 @@ const Mack = (function () {
     const body = el.querySelector('.mack-body');
     let moodTimer = 0, bubbleTimer = 0, quiet = false, pokes = 0, pokeTimer = 0;
 
-    // The 3D Mack when the device can draw it; the drawn (SVG) Mack otherwise.
-    const m3 = typeof Mack3D !== 'undefined' && Mack3D.available ? Mack3D.create(body, { portrait: corner }) : null;
-    let setMood;
-    if (m3) {
-      el.classList.add('mack-3d');
-      setMood = name => m3.setMood(name);
-    } else {
-      body.innerHTML = svg(id);
-      const eyes = el.querySelector('.mack-eyes'), mouth = el.querySelector('.mack-mouth');
-      setMood = name => { const [e, m] = MOODS[name] || MOODS.happy; eyes.innerHTML = EYES[e]; mouth.innerHTML = MOUTH[m]; };
-      // Blink now and then
-      setInterval(() => {
-        if (document.hidden) return;
-        el.classList.add('blink');
-        setTimeout(() => el.classList.remove('blink'), 140);
-      }, 3800 + Math.random() * 2000);
+    // The drawn (SVG) Mack shows at once; on devices that can draw 3D he's swapped for the
+    // 3D Mack once the page has loaded and the browser is idle, so he never slows the first screen.
+    let m3 = null, current = 'happy';
+    body.innerHTML = svg(id);
+    const eyes = el.querySelector('.mack-eyes'), mouth = el.querySelector('.mack-mouth');
+    const svgMood = name => { const [e, m] = MOODS[name] || MOODS.happy; eyes.innerHTML = EYES[e]; mouth.innerHTML = MOUTH[m]; };
+    const setMood = name => { current = name; if (m3) m3.setMood(name); else svgMood(name); };
+    setInterval(() => {   // the drawn Mack blinks now and then
+      if (m3 || document.hidden) return;
+      el.classList.add('blink');
+      setTimeout(() => el.classList.remove('blink'), 140);
+    }, 3800 + Math.random() * 2000);
+    if (typeof Mack3D !== 'undefined' && Mack3D.available) {
+      const upgrade = () => {
+        const inst = Mack3D.create(body, { portrait: corner });
+        if (!inst) return;
+        const drawn = body.querySelector('svg'); if (drawn) drawn.remove();
+        el.classList.add('mack-3d');
+        m3 = inst;
+        m3.setMood(current);
+      };
+      const idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 1500 }) : setTimeout(f, 200));
+      if (document.readyState === 'complete') idle(upgrade);
+      else window.addEventListener('load', () => idle(upgrade), { once: true });
     }
     setMood('happy');
 

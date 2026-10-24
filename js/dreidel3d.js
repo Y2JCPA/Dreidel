@@ -412,7 +412,10 @@ const Dreidel3D = (function () {
   function loop(now) {
     if (!running) return;
     requestAnimationFrame(loop);
-    if (document.hidden) return;
+    if (document.hidden || !container.offsetParent) return;
+    // Full speed while spinning or standing up; 30 fps when the dreidel is just idling.
+    const busy = anim && (anim.kind === 'spin' || anim.kind === 'stand' || (anim.kind === 'landed' && now - anim.t0 < anim.T + anim.F + 1200));
+    if (!busy && now - lastT < 31) return;
     const dt = Math.min(0.05, (now - lastT) / 1000);
     lastT = now;
     step(now, dt);
