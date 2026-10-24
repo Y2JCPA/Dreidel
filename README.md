@@ -31,7 +31,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 
 ## Online play: Firebase setup
 
-1. Create a Firebase project and enable **Authentication → Anonymous** and **Realtime Database**. Exact steps and the database rules are in [SPEC.md, Appendix A](SPEC.md#appendix-a--firebase-setup-one-time-5-minutes).
+1. Create a Firebase project and enable **Authentication → Anonymous** and **Realtime Database**. Exact steps are in [SPEC.md, Appendix A](SPEC.md#appendix-a--firebase-setup-one-time-5-minutes). The database rules are in [`database.rules.json`](database.rules.json).
 2. Paste the web app's `firebaseConfig` into [`js/firebase-config.js`](js/firebase-config.js).
 3. In **Authentication → Settings → Authorized domains**, add the domain the game is served from (for GitHub Pages: `y2jcpa.github.io`).
 
@@ -57,7 +57,32 @@ Until that config is filled in, online buttons explain that online play isn't se
 | `js/audio.js` | Synthesized sound effects |
 | `js/profile.js`, `js/bots.js` | Player profile, stats and unlocks; computer players |
 | `tools/simulate.js` | Odds simulation (`node tools/simulate.js [tap-error-seconds]`) |
-| `tests/` | `node --test tests/*.test.js` |
+| `tests/` | Unit tests (`node --test tests/*.test.js`) and browser tests (`tests/e2e/`) |
+
+## Tests
+
+```sh
+node --test tests/*.test.js          # rules, payouts, trivia, spin-offs, question bank (27 tests)
+node tests/e2e/run.js                # full browser suite (~15 min), or filter: node tests/e2e/run.js online
+```
+
+The browser suite drives real games in headless Chromium with Playwright (`NODE_PATH=$(npm root -g)` if it's installed globally):
+
+- **Single device:** a full game against computer players, then play again. Pass-and-play trivia with every outcome (kept, stolen, split, nun). Classic pot and antes. A double spin-off.
+- **Online** (over `?net=local`): three people plus a computer player with trivia on every screen, wrong code, full room, a latecomer watching, reload and rejoin, the 30-second turn timer, a trivia timeout, and the host leaving in the lobby and mid-game.
+- **Screens:** custom settings, Israel/Pey, the intro's practice meter, the menu, Hebrew mid-game, quiet Mack, leaving, dreidel unlocks after a win, touch taps, and seat layout at 11 screen sizes with 2–8 players.
+
+To run the online scenarios against **real Firebase code** using Google's local emulators (needs Java), start the emulators and load the rules, then run with `NET=emulator`:
+
+```sh
+npx firebase-tools emulators:start --only auth,database --project demo-mackabee
+curl -X PUT --data-binary @database.rules.json "http://127.0.0.1:9000/.settings/rules.json?ns=demo-mackabee" -H "Authorization: Bearer owner"
+NET=emulator node tests/e2e/run.js online
+```
+
+You can also play against the emulators by opening the game with `?emulator=127.0.0.1`.
+
+Tests can force letters with `Rules.force.push('gimel')` and read the state from `window.MackTest.state`. `?p=name` gives a tab its own saved profile.
 
 ## Trivia review
 

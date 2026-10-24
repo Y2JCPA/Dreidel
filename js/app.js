@@ -200,13 +200,27 @@
   function row(label, inner, hint) {
     return `<div class="set-row"><span class="lbl">${esc(label)}${hint ? `<small>${esc(hint)}</small>` : ''}</span>${inner}</div>`;
   }
+  // Presets plus an "Other" button that opens a number box.
+  const CUSTOM = { startCoins: [1, 500], rounds: [1, 20] };
+  function withCustom(name, presets, value) {
+    const custom = !presets.includes(value);
+    const opts = presets.map(v => ({ v, label: v })).concat([{ v: 'custom', label: custom ? `${value} ✎` : t('other') }]);
+    let html = seg(name, opts, custom ? 'custom' : value);
+    if (customOpen === name) {
+      const [lo, hi] = CUSTOM[name];
+      html += `<form class="custom-row" data-custom="${name}" novalidate><input type="number" id="custom-${name}" inputmode="numeric" min="${lo}" max="${hi}" value="${value}" aria-label="${esc(t(name))}"><span class="hint">${lo}–${hi}</span><button class="btn btn-small btn-gold" type="submit">${esc(t('done'))}</button></form>`;
+    }
+    return html;
+  }
+  let customOpen = null;
+
   function renderSettingsForm(s, editable) {
     const O = CONFIG.options;
     let html = '';
     html += row(t('mode'), seg('mode', [{ v: 'wager', label: t('modeWager'), hint: t('modeWagerHint') }, { v: 'classic', label: t('modeClassic'), hint: t('modeClassicHint') }], s.mode, { tall: true }));
     html += row(t('location'), seg('inIsrael', [{ v: false, label: t('outside'), hint: t('outsideHint') }, { v: true, label: t('inIsrael'), hint: t('inIsraelHint') }], !!s.inIsrael, { tall: true }));
-    html += row(t('startCoins'), seg('startCoins', O.startCoins.map(v => ({ v, label: v })), s.startCoins));
-    html += row(t('rounds'), seg('rounds', O.rounds.map(v => ({ v, label: v })), s.rounds), t('roundsHint'));
+    html += row(t('startCoins'), withCustom('startCoins', O.startCoins, s.startCoins));
+    html += row(t('rounds'), withCustom('rounds', O.rounds, s.rounds), t('roundsHint'));
     if (s.mode === 'wager') {
       html += row(t('trivia'), seg('trivia', [{ v: true, label: t('on') }, { v: false, label: t('off') }], !!s.trivia), t('triviaHint'));
       if (s.trivia) {
@@ -223,6 +237,14 @@
     const b = e.target.closest('button[data-v]'); if (!b) return;
     const name = b.parentElement.dataset.set;
     let v = b.dataset.v;
+    if (v === 'custom') {
+      if (setupMode === 'online' && !(room && room.isHost)) return;
+      customOpen = customOpen === name ? null : name;
+      if (setupMode === 'local') renderSetup(); else renderLobby(room.lobby);
+      const box = $('custom-' + name); if (box) { box.focus(); box.select(); }
+      return;
+    }
+    customOpen = null;
     if (v === 'true' || v === 'false') v = v === 'true';
     else if (/^\d+$/.test(v)) v = +v;
     Sound.play('click');
@@ -235,6 +257,22 @@
       Profile.set({ settings: Object.assign({}, room.lobby.settings, { [name]: v }) });
     }
   };
+
+  $('settings-form').addEventListener('submit', e => {
+    const f = e.target.closest('form[data-custom]'); if (!f) return;
+    e.preventDefault();
+    const name = f.dataset.custom;
+    const [lo, hi] = CUSTOM[name];
+    const v = clamp(Math.round(+$('custom-' + name).value || lo), lo, hi);
+    customOpen = null;
+    if (setupMode === 'local') {
+      localSettings[name] = v;
+      Profile.set({ settings: Object.assign({}, localSettings) });
+      renderSetup();
+    } else if (room && room.isHost) {
+      room.setSettings({ [name]: v });
+    }
+  });
 
   // ---------- Local setup ----------
   function openSetupLocal() {
@@ -544,7 +582,7 @@
   function renderTop() {
     $('g-round').innerHTML = S.spinoff
       ? `${esc(t('spinoff'))}`
-      : `${esc(t('round', { r: S.round, n: S.settings.rounds }))}<small>${esc(t(S.settings.mode === 'classic' ? 'modeClassic' : 'modeWager'))}</small>`;
+      : `${esc(t('round', { r: S.round, n: S.settings.rounds }))}${S.settings.mode === 'classic' ? '' : `<small>· ${esc(t('modeWager'))}</small>`}`;
     renderMenorah(Math.min(8, S.round));
     $('g-pot').hidden = S.settings.mode !== 'classic';
     $('g-pot').textContent = `${t('pot')}: ${S.pot}`;
@@ -617,7 +655,7 @@
     }
     const crowded = n >= 7 && stage.clientWidth < 560;
     $('seats').classList.toggle('crowded', crowded);
-    const pad = crowded ? 38 : 46, w = stage.clientWidth, h = stage.clientHeight;
+    const w = stage.clientWidth, h = stage.clientHeight;
     const c = threeOk ? Dreidel3D.tableCenter() : { x: w / 2, y: h / 2 };
     S.players.forEach((p, i) => {
       const el = $('seats').querySelector(`[data-pid="${CSS.escape(p.id)}"]`);
@@ -627,8 +665,9 @@
       // felt; seats at the far side go further, since the standing dreidel reaches toward them.
       const dx = a.x - c.x, dy = a.y - c.y, len = Math.hypot(dx, dy) || 1;
       const push = 20 + (dy < 0 ? 18 * (-dy / len) : 0);
-      el.style.left = clamp(a.x + dx / len * push, pad, w - pad) + 'px';
-      el.style.top = clamp(a.y + dy / len * push, 36, h - 36) + 'px';
+      const hw = el.offsetWidth / 2 + 4, hh = el.offsetHeight / 2 + 4;   // keep the whole plate on the stage
+      el.style.left = clamp(a.x + dx / len * push, hw, w - hw) + 'px';
+      el.style.top = clamp(a.y + dy / len * push, hh, h - hh) + 'px';
     });
   }
   function seatPoint(pid) {
@@ -939,6 +978,7 @@
     const queue = S.players.filter(p => room.myIds.includes(p.id) && !p.bot).map(p => p.id);
     ui.quiz = { q, queue, idx: 0, start: 0, endAt: 0, timer: 0, answered: false, seq: key(S) };
     $('ov-trivia').hidden = false;
+    $('ov-trivia').scrollTop = 0;
     Sound.play('quiz');
     mackCorner.react('wow', I18N.pick('mack_quiz'), 'cheer');
     if (queue.length > 1) quizReady();
@@ -1027,6 +1067,7 @@
     if (!q) return;
     if (ui.quiz && ui.quiz.timer) clearInterval(ui.quiz.timer);
     $('ov-trivia').hidden = false;
+    $('ov-trivia').scrollTop = 0;
     const marks = OPT_MARK[I18N.lang] || OPT_MARK.en;
     const sp = Rules.byId(S, S.spin.player);
     const thieves = Object.keys(S.result.deltas).filter(pid => pid !== sp.id).map(pid => Rules.byId(S, pid).name);

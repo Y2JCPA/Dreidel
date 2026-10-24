@@ -288,19 +288,6 @@ Each phase ends with something playable that you can test on real phones.
 1. Go to **console.firebase.google.com**, click **Create a project**, and name it e.g. `mackabee-dreidel`. You can turn off Google Analytics.
 2. **Build → Authentication → Get started → Sign-in method → Anonymous → Enable.**
 3. **Build → Realtime Database → Create database.** Location: **europe-west1 (Belgium)**, the closest to Israel and fine for the US. Start in **locked mode**.
-4. In the database's **Rules** tab, paste this and click **Publish**:
-   ```json
-   {
-     "rules": {
-       "rooms": {
-         "$code": { ".read": "auth != null", ".write": "auth != null" }
-       },
-       "profiles": {
-         "$uid": { ".read": "auth != null && auth.uid === $uid", ".write": "auth != null && auth.uid === $uid" }
-       }
-     }
-   }
-   ```
-   (These will be tightened once the data layout is final.)
+4. In the database's **Rules** tab, paste the contents of [`database.rules.json`](database.rules.json) and click **Publish**. Signed-in players can read and write rooms, room codes must be 4 valid characters, and each profile is private to its owner. The online test suite runs against these exact rules.
 5. **Project settings (gear icon) → General → Your apps → Web (`</>`)**: register an app named `dreidel`, no hosting.
 6. Copy the `firebaseConfig` block it shows you and paste it to me. Those values aren't secret: they're meant to be in the web page, and the rules above protect the data.

@@ -16,7 +16,12 @@
 const Net = (function () {
   const params = new URLSearchParams(location.search);
   const wantLocal = params.get('net') === 'local';
-  const hasFirebase = typeof FIREBASE_CONFIG !== 'undefined' && FIREBASE_CONFIG && typeof firebase !== 'undefined' && firebase.initializeApp;
+  // ?emulator=127.0.0.1 points at the Firebase emulators (auth :9099, database :9000) for local testing.
+  const emu = params.get('emulator');
+  const config = emu
+    ? { apiKey: 'demo-key', authDomain: 'localhost', projectId: 'demo-mackabee', databaseURL: `http://${emu}:9000?ns=demo-mackabee` }
+    : (typeof FIREBASE_CONFIG !== 'undefined' ? FIREBASE_CONFIG : null);
+  const hasFirebase = !!config && typeof firebase !== 'undefined' && !!firebase.initializeApp;
 
   const split = path => path.split('/').filter(Boolean);
   const clone = v => (v === undefined ? null : JSON.parse(JSON.stringify(v)));
@@ -91,9 +96,10 @@ const Net = (function () {
       connect() {
         return new Promise((resolve, reject) => {
           try {
-            const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+            const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
             const auth = app.auth();
             db = app.database();
+            if (emu) { auth.useEmulator(`http://${emu}:9099`, { disableWarnings: true }); db.useEmulator(emu, 9000); }
             const timer = setTimeout(() => reject(new Error('timeout')), 12000);
             auth.onAuthStateChanged(u => {
               if (!u) return;

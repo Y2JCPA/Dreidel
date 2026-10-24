@@ -18,8 +18,9 @@ const files = ['local', 'online', 'ui'];
       try {
         ck = await Promise.race([sc.run({ browser, url }), new Promise((_, rej) => setTimeout(() => rej(new Error('timed out after 6 min')), 360000))]);
       } catch (e) {
-        ck = new H.Check(sc.name); ck.fails.push('threw: ' + (e.stack || e.message).split('\n').slice(0, 4).join(' | '));
+        ck = new H.Check(sc.name); ck.fails.push('threw: ' + (e.stack || e.message).split('\n').slice(0, process.env.VERBOSE ? 40 : 4).join(' | '));
       }
+      for (const c of browser.contexts()) await c.close().catch(() => {});   // free every player's browser
       const secs = ((Date.now() - t0) / 1000).toFixed(0);
       results.push([sc.name, ck]);
       console.log(`${ck.fails.length ? 'FAIL' : 'PASS'}  ${sc.name}  (${secs}s)`);

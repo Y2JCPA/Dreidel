@@ -636,8 +636,12 @@ const Dreidel3D = (function () {
     model = buildModel(getSkin(id));
     flip.add(model);
   }
+  // Free geometry and materials (textures are cached and shared, so they stay).
   function disposeTree(o) {
-    o.traverse(n => { if (n.geometry) n.geometry.dispose(); });
+    o.traverse(n => {
+      if (n.geometry) n.geometry.dispose();
+      if (n.material) [].concat(n.material).forEach(m => m.dispose());
+    });
   }
   function setLetters(isr) {
     if (isr === inIsrael) return;
@@ -808,7 +812,7 @@ const Dreidel3D = (function () {
   function onLayout(f) { listeners.layout.push(f); }
 
   // ---------- Skin thumbnails for the picker ----------
-  let thumbR = null;
+  let thumbR = null, thumbScene = null, thumbCam = null;
   function thumbnail(id, size = 140) {
     const key = 'thumb-' + id + (inIsrael ? 'p' : 's') + (fontReady ? 'f' : '');
     if (texCache[key]) return texCache[key];
@@ -821,19 +825,21 @@ const Dreidel3D = (function () {
       }
       thumbR.setPixelRatio(1);
       thumbR.setSize(size, size, false);
-      const sc = new T.Scene();
-      const pm = new T.PMREMGenerator(thumbR);
-      sc.environment = pm.fromEquirectangular(envTexture()).texture;
-      sc.add(new T.HemisphereLight(0xffe9c4, 0x0b1630, 1.1));
-      const dl = new T.DirectionalLight(0xfff1d6, 2.4); dl.position.set(2, 4, 3); sc.add(dl);
-      const cam = new T.PerspectiveCamera(32, 1, 0.1, 50);
-      cam.position.set(2.4, 2.4, 3.6); cam.lookAt(0, 1.0, 0);
+      if (!thumbScene) {   // one scene and lighting for every thumbnail
+        thumbScene = new T.Scene();
+        thumbScene.environment = new T.PMREMGenerator(thumbR).fromEquirectangular(envTexture()).texture;
+        thumbScene.add(new T.HemisphereLight(0xffe9c4, 0x0b1630, 1.1));
+        const dl = new T.DirectionalLight(0xfff1d6, 2.4); dl.position.set(2, 4, 3); thumbScene.add(dl);
+        thumbCam = new T.PerspectiveCamera(32, 1, 0.1, 50);
+        thumbCam.position.set(2.4, 2.4, 3.6); thumbCam.lookAt(0, 1.0, 0);
+      }
       const m = buildModel(getSkin(id));
       m.rotation.y = -0.55;
       m.rotation.z = 0.12;
-      sc.add(m);
-      thumbR.render(sc, cam);
+      thumbScene.add(m);
+      thumbR.render(thumbScene, thumbCam);
       const url = thumbR.domElement.toDataURL('image/png');
+      thumbScene.remove(m);
       disposeTree(m);
       return (texCache[key] = url);
     } catch (e) { return ''; }

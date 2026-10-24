@@ -1,8 +1,12 @@
 // Online rooms over the local test network (?net=local): tabs in one browser share it.
 const H = require('./helpers');
 
+// NET=emulator runs these against the Firebase emulators; each player then needs their own
+// browser context, because Firebase keeps one signed-in user per browser.
+const EMU = process.env.NET === 'emulator';
 async function player(ctx, url, slot, name, extra = '') {
-  const p = await H.page(ctx, `${url}?net=local&p=${slot}${extra}`, name);
+  if (EMU) ctx = await ctx.browser().newContext({ viewport: { width: 390, height: 844 } });
+  const p = await H.page(ctx, `${url}?${EMU ? 'emulator=127.0.0.1' : 'net=local'}&p=${slot}${extra}`, name);
   await H.profile(p, name);
   return p;
 }
@@ -15,7 +19,7 @@ async function hostRoom(p) {
 }
 async function joinRoom(ctx, url, slot, name, code) {
   const p = await player(ctx, url, slot, name, `&room=${code}`);
-  await p.waitForSelector('#scr-setup:not([hidden]), #scr-game:not([hidden])', { timeout: 15000 });
+  await p.waitForSelector('#scr-setup:not([hidden]), #scr-game:not([hidden])', { timeout: 40000 });
   await H.skipIntro(p);
   return p;
 }
