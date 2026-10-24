@@ -698,6 +698,7 @@ const Dreidel3D = (function () {
     const driftAng = R() * Math.PI * 2;
     const skin = getSkin(skinId);
     setupParticles(skin.fx);
+    settle();
     return new Promise(resolve => {
       anim = {
         kind: 'spin', t0: performance.now(), T: cfg.ms, F: C.spin.fallMs, S: skin.fx === 'boing' ? 650 : 380,
@@ -707,12 +708,17 @@ const Dreidel3D = (function () {
     });
   }
 
+  // A new animation replaces the current one; an interrupted spin still reports that it ended.
+  function settle() { if (anim && anim.kind === 'spin' && !anim.done) { anim.done = true; anim.resolve(); } }
+
   function standUp() {
+    settle();
     const from = pivot.quaternion.clone();
     anim = { kind: 'stand', t0: performance.now(), from, x0: pivot.position.x, z0: pivot.position.z, upside: flip.rotation.x !== 0 };
   }
 
   function idle() {
+    settle();
     anim = { kind: 'idle', yaw: idleYaw };
     setPose(idleYaw, 0, 0, 0, 0, false);
   }

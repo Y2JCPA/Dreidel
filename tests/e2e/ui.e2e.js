@@ -203,6 +203,55 @@ module.exports = [
   },
 
   {
+    name: 'ui: easter eggs, every dreidel skin spins and lands, Kids trivia level',
+    async run({ browser, url }) {
+      const ck = new H.Check(this.name);
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      const p = await H.page(ctx, url + '?p=egg', 'egg');
+      await H.profile(p, 'Rivka');
+      await H.setupLocal(p, { bots: 1, settings: { rounds: 3, triviaLevel: 'kids', triviaChance: 100 } });
+      await H.startLocal(p);
+      await p.waitForSelector('#spin-btn');   // my turn: nothing else moves while the skins spin
+      // Every skin spins and lands on the letter it was told to.
+      const letters = ['nun', 'gimel', 'hey', 'shin'];
+      const results = await p.evaluate(async (letters) => {
+        const out = [];
+        for (const [i, s] of CONFIG.skins.entries()) {
+          Dreidel3D.setSkin(s.id);
+          const t0 = performance.now();
+          await Dreidel3D.spin({ letter: letters[i % 4], grade: ['miss', 'good', 'perfect'][i % 3], upside: i % 5 === 0, seed: i + 1 });
+          out.push([s.id, Math.round(performance.now() - t0)]);
+          Dreidel3D.standUp();
+          await new Promise(r => setTimeout(r, 450));
+        }
+        return out;
+      }, letters);
+      ck.eq(results.length, 15, 'all 15 skins spun');
+      ck.ok(results.every(([, ms]) => ms > 1000 && ms < 5000), 'each spin landed in 1–5 s: ' + results.map(r => r.join(' ')).join(', '));
+      // Phone upside down → the spin is flagged upside down for everyone.
+      await p.evaluate(() => { const e = new Event('deviceorientation'); e.beta = -100; e.gamma = 0; window.dispatchEvent(e); });
+      await H.force(p, ['gimel']);
+      await H.spin(p, 3);
+      await H.waitState(p, S => S.spin && S.spin.id === 1);
+      ck.eq((await H.state(p)).spin.upside, true, 'upside-down phone spins the dreidel upside down');
+      await H.waitState(p, S => S.phase === 'trivia', null, 10000);
+      ck.ok((await H.state(p)).trivia.qid.startsWith('k'), 'Kids level asks a Kids question');
+      await H.answer(p, 'right');
+      await p.waitForSelector('#q-continue'); await p.click('#q-continue');
+      // Shake → gelt shower
+      await p.evaluate(() => { const e = new Event('devicemotion'); e.accelerationIncludingGravity = { x: 30, y: 10, z: 5 }; window.dispatchEvent(e); });
+      await p.waitForTimeout(150);
+      ck.ok((await p.$$('.coins-layer .coin')).length >= 10, 'shaking showers gelt');
+      // Tap Mack five times → loop-de-loop
+      for (let i = 0; i < 5; i++) await p.click('#mack-corner .mack-body', { force: true });   // he bobs, so never "stable"
+      ck.ok(await p.$eval('#mack-corner .mack-body', e => e.classList.contains('a-loop')), 'Mack does a loop after 5 taps');
+      ck.errors(p);
+      await ctx.close();
+      return ck;
+    },
+  },
+
+  {
     name: 'ui: layout — seats at phone, tablet and desktop sizes, 2 to 8 players, resize',
     async run({ browser, url }) {
       const ck = new H.Check(this.name);

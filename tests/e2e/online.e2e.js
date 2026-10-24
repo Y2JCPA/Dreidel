@@ -254,12 +254,17 @@ module.exports = [
       ck.eq(await lobbyCount(a), 1, 'host who left is removed from the list');
       ck.ok(await a.isHidden('#host-only'), 'Avi can change settings now');
       await a.click('#add-bot');
+      await a.click('[data-set="mode"] [data-v="classic"]');
       await a.waitForTimeout(300);
       await a.click('#btn-start');
       await H.waitState(a, S => S.phase === 'turn', null, 10000);
-      await H.spin(a, 2);
+      ck.eq((await H.state(a)).settings.mode, 'classic', 'online Classic game');
+      ck.eq((await H.state(a)).pot, 2, 'both ante into the pot');
+      await H.spin(a);
       await H.waitState(a, S => S.spins >= 2, null, 20000);
       ck.ok(true, 'computer player moved after the new host started');
+      const S = await H.state(a);
+      ck.eq(S.players.reduce((t, x) => t + x.coins, 0) + S.pot, 40, 'Classic keeps every coin');
       ck.errors(a);
       await ctx.close();
       return ck;
