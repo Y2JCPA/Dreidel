@@ -300,7 +300,7 @@ const Mack3D = (function () {
 
   // ---------- Instances ----------
   // `portrait` frames just the head and helmet (for the small corner Mack).
-  function create(el, { portrait = false } = {}) {
+  function create(el, { portrait = false, onReady = null } = {}) {
     if (!available) return null;
     let renderer;
     try { renderer = new T.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' }); }
@@ -311,7 +311,6 @@ const Mack3D = (function () {
     renderer.toneMappingExposure = 1.05;
     const cv = renderer.domElement;
     cv.className = 'mack-canvas';
-    el.appendChild(cv);
 
     const scene = new T.Scene();
     scene.environment = G.roomEnvironment(renderer);
@@ -340,9 +339,16 @@ const Mack3D = (function () {
       camera.aspect = w / h; camera.updateProjectionMatrix();
     }
     inst.size = size;
-    size();
-    instances.add(inst);
-    startTicker();
+    // Prepare the shaders in the background (where the device supports it), then show him.
+    const show = () => {
+      el.appendChild(cv);
+      size();
+      instances.add(inst);
+      startTicker();
+      if (onReady) onReady();
+    };
+    const pending = renderer.compileAsync ? renderer.compileAsync(scene, camera) : null;
+    if (pending && pending.then) pending.then(show, show); else show();
     return {
       setMood(name) { inst.mood = name; applyMood(parts, name); },
       play(name) { inst.anim = name; inst.animT = performance.now(); },

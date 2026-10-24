@@ -112,12 +112,15 @@ const Mack = (function () {
     }, 3800 + Math.random() * 2000);
     if (typeof Mack3D !== 'undefined' && Mack3D.available) {
       const upgrade = () => {
-        const inst = Mack3D.create(body, { portrait: corner });
-        if (!inst) return;
-        const drawn = body.querySelector('svg'); if (drawn) drawn.remove();
-        el.classList.add('mack-3d');
-        m3 = inst;
-        m3.setMood(current);
+        const inst = Mack3D.create(body, {
+          portrait: corner,
+          onReady: () => {   // swap only once the 3D Mack is ready to draw
+            const drawn = body.querySelector('svg'); if (drawn) drawn.remove();
+            el.classList.add('mack-3d');
+            m3 = inst;
+            m3.setMood(current);
+          },
+        });
       };
       const idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 1500 }) : setTimeout(f, 200));
       if (document.readyState === 'complete') idle(upgrade);

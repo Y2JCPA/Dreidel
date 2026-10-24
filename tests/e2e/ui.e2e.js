@@ -37,12 +37,16 @@ module.exports = [
       await p.click('#intro-next'); await p.click('#intro-next');
       ck.ok(await p.isVisible('#ip-meter'), 'practice meter on page 3');
       // Wait for the zone's resize animation to settle before measuring
-      const settled = () => p.waitForFunction(() => new Promise(r => { const z = document.querySelector('#ip-meter .meter-zone'); const a = z.getBoundingClientRect().width; setTimeout(() => r(Math.abs(z.getBoundingClientRect().width - a) < 0.5), 150); }), null, { timeout: 10000 });
+      // Wait until the zone reaches the width the rules give for this bet (it animates there)
+      const settled = bet => p.waitForFunction(b => {
+        const z = document.querySelector('#ip-meter .meter-zone'), t = document.querySelector('#ip-meter .meter-track');
+        return Math.abs(z.getBoundingClientRect().width - Rules.meterParams(b).width * t.getBoundingClientRect().width) < 2;
+      }, bet, { timeout: 15000 });
       await p.evaluate(() => { const s = document.getElementById('ip-slider'); s.value = 80; s.dispatchEvent(new Event('input')); });
-      await settled();
+      await settled(80);
       const w80 = await p.$eval('#ip-meter .meter-zone', e => e.getBoundingClientRect().width);
       await p.evaluate(() => { const s = document.getElementById('ip-slider'); s.value = 1; s.dispatchEvent(new Event('input')); });
-      await settled();
+      await settled(1);
       const w1 = await p.$eval('#ip-meter .meter-zone', e => e.getBoundingClientRect().width);
       ck.ok(w1 > w80 * 2, `green zone shrinks with the bet (1 coin: ${w1.toFixed(0)}px, 80 coins: ${w80.toFixed(0)}px)`);
       await p.click('#ip-tap'); await p.waitForTimeout(300); await p.click('#ip-tap');
