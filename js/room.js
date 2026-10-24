@@ -209,9 +209,27 @@ const Room = (function () {
       ref = null; bots = null; inputsSub = null;
     }
 
+    // Host housekeeping for people who closed their tab or lost connection:
+    // in the lobby they're removed after 8 s; in a game their turn is played after 12 s
+    // (long enough for a page refresh or a phone waking up).
+    const goneSince = {};
+    function housekeeping() {
+      const now = Date.now();
+      for (const [pid, p] of Object.entries(players)) {
+        if (p.bot || p.online !== false) { delete goneSince[pid]; continue; }
+        goneSince[pid] = goneSince[pid] || now;
+      }
+      if (meta.status === 'lobby') {
+        for (const pid in goneSince) if (now - goneSince[pid] > 8000 && pid !== uid) Net.remove(`${base}/players/${pid}`);
+      } else if (ref && ref.state && ref.state.phase === 'turn') {
+        const cur = Rules.current(ref.state);
+        if (cur && !cur.bot && goneSince[cur.id] && now - goneSince[cur.id] > 12000) ref.act(cur.id, { type: 'spin', wager: 1, grade: 'miss' });
+      }
+    }
+
     function checkHost() {
       if (left || !meta) return;
-      if (meta.host === uid) { if (S || meta.status === 'lobby') becomeHost(); return; }
+      if (meta.host === uid) { if (S || meta.status === 'lobby') becomeHost(); housekeeping(); return; }
       stopHost();
       const host = players[meta.host];
       const hostGone = !host || host.online === false;
@@ -257,7 +275,7 @@ const Room = (function () {
       removePlayer(pid) { if (api.isHost && pid !== uid) Net.remove(`${base}/players/${pid}`); },
       start() {
         if (!api.isHost) return;
-        const list = Object.entries(players).sort((a, b) => a[1].seat - b[1].seat)
+        const list = Object.entries(players).filter(([, p]) => p.bot || p.online !== false).sort((a, b) => a[1].seat - b[1].seat)
           .map(([id, p]) => ({ id, name: p.name, avatar: p.avatar, skin: p.skin, bot: !!p.bot }));
         if (list.length < CONFIG.players.min) return;
         const first = Rules.create(settings, list, Net.now());

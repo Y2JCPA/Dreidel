@@ -62,7 +62,10 @@ const Rules = (function () {
   }
 
   // ---------- Letters & payouts ----------
+  // Tests can queue letters here to force outcomes; normal play leaves it empty.
+  const force = [];
   function drawLetter(table, rng = Math.random) {
+    if (force.length) return force.shift();
     const odds = C.odds[table];
     let r = rng() * 100;
     for (const L of C.letters) {
@@ -397,7 +400,7 @@ const Rules = (function () {
   }
 
   return {
-    GRADES, RANK, meterParams, markerPos, gradeTap, drawLetter, wagerDelta, settleTrivia,
+    GRADES, RANK, force, meterParams, markerPos, gradeTap, drawLetter, wagerDelta, settleTrivia,
     normalizeSettings, create, act, tick, canSpin, current, byId, standings, shuffle,
   };
 })();

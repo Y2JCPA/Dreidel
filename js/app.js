@@ -350,7 +350,7 @@
       $('toast').hidden = true;
       enterLobby();
     } catch (e) {
-      console.error(e);
+      if (e.code !== 'notFound' && e.code !== 'full') console.error(e);
       toast(e.code === 'notFound' ? t('errNotFound', { code }) : e.code === 'full' ? t('errFull') : t('errConnect'), 4000);
     }
   }
@@ -398,8 +398,9 @@
     $('add-person').hidden = true;
     $('host-only').hidden = L.isHost;
     $('btn-start').hidden = !L.isHost;
-    $('btn-start').disabled = list.length < CONFIG.players.min;
-    $('setup-warn').hidden = !L.isHost || list.length >= CONFIG.players.min;
+    const seated = list.filter(([, p]) => p.bot || p.online !== false).length;
+    $('btn-start').disabled = seated < CONFIG.players.min;
+    $('setup-warn').hidden = !L.isHost || seated >= CONFIG.players.min;
     $('setup-warn').textContent = t('needTwo');
     const host = L.players[L.meta.host];
     $('wait-host').hidden = L.isHost;
@@ -1132,6 +1133,9 @@
     $('ov-menu').hidden = true;
     if (await confirmBox(t('leaveConfirm'))) goHome();
   };
+
+  // Read-only view for automated tests.
+  window.MackTest = { get state() { return S; }, get room() { return room; }, get ui() { return ui; } };
 
   // ---------- Start ----------
   applyTexts();

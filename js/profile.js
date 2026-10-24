@@ -4,7 +4,9 @@
    on this device. Honey jars and wins unlock more dreidels.
    ============================================ */
 const Profile = (function () {
-  const KEY = 'mackabee_profile_v1';
+  // ?p=name keeps a separate profile, so several test players can share one browser.
+  const slot = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('p') : null;
+  const KEY = 'mackabee_profile_v1' + (slot ? '_' + slot.replace(/\W/g, '') : '');
   const rid = () => Math.random().toString(36).slice(2, 10);
   const browserHe = typeof navigator !== 'undefined' && /^he|^iw/i.test(navigator.language || '');
 
