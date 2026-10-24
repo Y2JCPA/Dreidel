@@ -149,8 +149,8 @@ module.exports = [
       await p.waitForSelector('#scr-profile:not([hidden])');
       ck.eq(await p.$$eval('.skin:not(.locked)', l => l.length), 6, '6 dreidels open at the start');
       ck.eq(await p.$$eval('.skin.locked', l => l.length), 9, '9 locked');
-      await p.waitForFunction(() => [...document.querySelectorAll('.skin img')].every(i => i.src.startsWith('data:image')), null, { timeout: 30000 });
-      ck.ok(true, 'every thumbnail drawn');
+      await p.waitForFunction(() => [...document.querySelectorAll('.skin img')].every(i => i.complete && i.naturalWidth > 0), null, { timeout: 30000 });
+      ck.ok(await p.$$eval('.skin img', l => l.every(i => !i.dataset.live)), 'every dreidel picture loaded from its image file');
       await H.shot(p, 'ui-skins');
       await p.click('.skin[data-s="anime"]', { force: true });
       ck.ok(/Win 1 game/.test(await p.textContent('#toast')), 'locked dreidel says how to unlock it');
@@ -251,6 +251,37 @@ module.exports = [
       // Tap Mack five times → loop-de-loop
       for (let i = 0; i < 5; i++) await p.click('#mack-corner .mack-body', { force: true });   // he bobs, so never "stable"
       ck.ok(await p.$eval('#mack-corner .mack-body', e => e.classList.contains('a-loop')), 'Mack does a loop after 5 taps');
+      ck.errors(p);
+      await ctx.close();
+      return ck;
+    },
+  },
+
+  {
+    name: 'ui: 3D Mack (full graphics) — appears, changes mood, animates',
+    async run({ browser, url }) {
+      const ck = new H.Check(this.name);
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      const p = await H.page(ctx, url + '?p=m3d&gfx=high', 'm3d');
+      await H.profile(p, 'Rivka');
+      await p.waitForSelector('#home-mack.mack-3d canvas', { timeout: 60000 });
+      ck.ok(await p.$eval('#home-mack', e => !e.querySelector('svg')), 'home Mack switched from drawn to 3D');
+      await H.setupLocal(p, { bots: 1, settings: { trivia: false } });
+      await H.startLocal(p);
+      await p.waitForSelector('#mack-corner.mack-3d canvas', { timeout: 60000 });
+      ck.ok(true, 'corner Mack is 3D');
+      // Every mood and animation runs without errors
+      await p.evaluate(async () => {
+        const holder = document.createElement('div'); document.body.appendChild(holder);
+        const m = Mack.create(holder);
+        await new Promise(r => { const t = setInterval(() => { if (holder.querySelector('canvas')) { clearInterval(t); r(); } }, 100); });
+        for (const mood of ['happy', 'cheer', 'wink', 'shrug', 'gasp', 'sneaky', 'sad', 'think', 'wow']) { m.mood(mood, 0); await new Promise(r => setTimeout(r, 120)); }
+        for (const a of ['cheer', 'gasp', 'loop', 'sad']) { m.anim(a); await new Promise(r => setTimeout(r, 400)); }
+      });
+      await H.force(p, ['gimel']);
+      await H.spin(p, 3);
+      await H.waitState(p, S => S.phase === 'result', null, 20000);
+      ck.ok(true, 'a full spin with the 3D Mack reacting');
       ck.errors(p);
       await ctx.close();
       return ck;

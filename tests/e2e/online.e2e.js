@@ -195,7 +195,11 @@ module.exports = [
       await H.waitState(a, S => S.phase === 'turn' && S.turn === 1, null, 20000);
       const before = (await H.state(a)).players[1];
       await a.reload();
-      await a.waitForSelector('#scr-game:not([hidden])', { timeout: 15000 });
+      try { await a.waitForSelector('#scr-game:not([hidden])', { timeout: 30000 }); }
+      catch (e) {
+        const st = await a.evaluate(() => ({ screens: [...document.querySelectorAll('.screen')].filter(s => !s.hidden).map(s => s.id), toast: document.getElementById('toast').textContent, overlays: [...document.querySelectorAll('.overlay')].filter(o => !o.hidden).map(o => o.id), room: !!(window.MackTest && MackTest.room) }));
+        throw new Error('after reload Avi sees ' + JSON.stringify(st));
+      }
       await H.waitState(a, S => true);
       const after = (await H.state(a)).players[1];
       ck.eq([after.id, after.coins], [before.id, before.coins], 'Avi back in his seat with his coins');

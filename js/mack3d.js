@@ -12,7 +12,20 @@
 const Mack3D = (function () {
   const T = window.THREE;
   const G = typeof Gfx !== 'undefined' ? Gfx : null;
-  const available = !!(T && G && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; } })());
+  // 3D Mack needs a graphics chip. Without one (software rendering) the drawn Mack is used,
+  // unless ?gfx=high forces full graphics (used to render screenshots).
+  const forceHigh = new URLSearchParams(location.search).get('gfx') === 'high';
+  const available = !!(T && G && (() => {
+    try {
+      const c = document.createElement('canvas'), gl = c.getContext('webgl2') || c.getContext('webgl');
+      if (!gl) return false;
+      if (forceHigh) return true;
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      const name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+      const lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext();
+      return !/swiftshader|llvmpipe|softpipe|software|basic render/i.test(name);
+    } catch (e) { return false; }
+  })());
 
   const instances = new Set();
   let ticking = false;
@@ -305,7 +318,8 @@ const Mack3D = (function () {
     let renderer;
     try { renderer = new T.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' }); }
     catch (e) { return null; }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const lowPower = G.isSoftware(renderer);
+    renderer.setPixelRatio(lowPower ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
@@ -327,7 +341,7 @@ const Mack3D = (function () {
     applyMood(parts, 'happy');
 
     const inst = {
-      el, renderer, scene, camera, root, parts, portrait, frame: 0,
+      el, renderer, scene, camera, root, parts, portrait, lowPower, frame: 0,
       mood: 'happy', anim: null, animT: 0, blinkAt: performance.now() + 2500, t0: performance.now(), w: 0, h: 0,
     };
     function size() {
@@ -372,7 +386,7 @@ const Mack3D = (function () {
     for (const inst of instances) {
       if (!visible(inst.el)) continue;
       // Mack doesn't need 60 fps: 30 for the big Mack, 20 for the small corner one (saves battery)
-      const gap = inst.portrait ? 48 : 31;
+      const gap = (inst.portrait ? 48 : 31) * (inst.lowPower ? 3 : 1);
       if (now - (inst.lastDraw || 0) < gap) continue;
       inst.lastDraw = now;
       inst.size();

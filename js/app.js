@@ -60,7 +60,15 @@
   function letterName(L) { return I18N.letterName(L, S ? S.settings.inIsrael : false); }
   function playerName(p) { return p ? p.name : ''; }
   function myId() { return room && room.kind === 'online' ? room.uid : P().id; }
-  function skinThumb(id) { return (window.THREE && Dreidel3D.thumbnail(id)) || ''; }
+  // Ready-made pictures of each dreidel (img/skins), drawn live only if a picture is missing.
+  function skinThumb(id) { return (window.SKIN_IMAGES && SKIN_IMAGES[id]) || `img/skins/${id}.jpg`; }
+  function liveThumb(img) {
+    if (img.dataset.live) return;
+    img.dataset.live = '1';
+    const url = window.THREE ? Dreidel3D.thumbnail(img.dataset.thumb) : '';
+    if (url) img.src = url;
+  }
+  document.addEventListener('error', e => { if (e.target.matches && e.target.matches('img[data-thumb]')) liveThumb(e.target); }, true);
 
   document.addEventListener('pointerdown', () => Sound.unlock(), { passive: true });
 
@@ -153,19 +161,9 @@
         lock = `<span class="lock">🔒 ${esc(t(label, { n: req.need }))}</span><span class="prog"><i style="width:${Math.round(req.have / req.need * 100)}%"></i></span>`;
       }
       return `<button type="button" class="skin ${open ? '' : 'locked'}" data-s="${s.id}" aria-pressed="${s.id === p.skin}" ${open ? '' : 'aria-disabled="true"'}>
-        <img alt="" data-thumb="${s.id}"><span>${esc(I18N.local(s.name))}</span>${lock}</button>`;
+        <img alt="" data-thumb="${s.id}" src="${skinThumb(s.id)}"><span>${esc(I18N.local(s.name))}</span>${lock}</button>`;
     }).join('');
     $('prof-stats').textContent = t('stats', p.stats);
-    // Draw the thumbnails a few at a time so the screen stays responsive.
-    const imgs = [...$('prof-skins').querySelectorAll('img[data-thumb]')];
-    let i = 0;
-    (function next() {
-      if (i >= imgs.length || $('scr-profile').hidden) return;
-      const img = imgs[i++];
-      const url = skinThumb(img.dataset.thumb);
-      if (url) img.src = url;
-      setTimeout(next, 16);
-    })();
   }
   $('prof-avatars').onclick = e => {
     const b = e.target.closest('button[data-a]'); if (!b) return;
@@ -1132,7 +1130,7 @@
       <div class="podium"><span class="crown">👑</span><span class="who">${esc(iWon && room.myIds.length === 1 ? t('youWin', { name: w.name }) : t('winnerIs', { name: w ? w.name : '' }))}</span></div>
       <ol class="final">${list.map(p => `<li class="${S.winners.includes(p.id) ? 'win' : ''}"><span class="av">${esc(p.avatar)}</span><span class="n">${esc(p.name)}</span><span class="c">${p.coins}</span></li>`).join('')}</ol>
       ${earned && earned.honey ? `<p class="earned">${esc(t('honeyEarned', { n: earned.honey }))}</p>` : ''}
-      ${earned && earned.unlocks ? earned.unlocks.map(s => `<div class="unlock"><img alt="" src="${skinThumb(s.id)}"><b>${esc(t('newUnlock', { name: I18N.local(s.name) }))}</b></div>`).join('') : ''}
+      ${earned && earned.unlocks ? earned.unlocks.map(s => `<div class="unlock"><img alt="" data-thumb="${s.id}" src="${skinThumb(s.id)}"><b>${esc(t('newUnlock', { name: I18N.local(s.name) }))}</b></div>`).join('') : ''}
       <div class="btns">
         <button class="btn btn-navy" id="over-home" type="button">${esc(t('home'))}</button>
         ${canAgain ? `<button class="btn btn-gold" id="over-again" type="button">${esc(t('playAgain'))}</button>` : `<span class="hint center">${esc(t('waitingHost', { name: '' }))}</span>`}

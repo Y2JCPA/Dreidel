@@ -161,5 +161,17 @@ const Gfx = (function () {
     return (glowTex = tex(c));
   }
 
-  return { noise, fbm, canvas, tex, paint, mix, mixRGB, hexRGB, heightsFrom, blur, normalMap, greyCanvas, roomEnvironment, contactShadow, glowSprite };
+  // True when the browser draws 3D without a graphics chip (software rendering). The game then
+  // lowers resolution, drops real-time shadows and redraws idle scenes less often.
+  function isSoftware(renderer) {
+    if (new URLSearchParams(location.search).get('gfx') === 'high') return false;
+    try {
+      const gl = renderer.getContext();
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      const name = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+      return /swiftshader|llvmpipe|softpipe|software|basic render/i.test(String(name));
+    } catch (e) { return false; }
+  }
+
+  return { isSoftware, noise, fbm, canvas, tex, paint, mix, mixRGB, hexRGB, heightsFrom, blur, normalMap, greyCanvas, roomEnvironment, contactShadow, glowSprite };
 })();

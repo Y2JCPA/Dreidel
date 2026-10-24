@@ -26,7 +26,7 @@ const Dreidel3D = (function () {
   let rx = 2.6, rz = 3.5;                  // table radii
   let skinId = 'wood', inIsrael = false;
   let anim = null;                         // current animation
-  let idleYaw = 0, lastT = 0, running = false;
+  let idleYaw = 0, lastT = 0, running = false, lowPower = false;
   const texCache = {};
   const listeners = { layout: [] };
 
@@ -169,7 +169,9 @@ const Dreidel3D = (function () {
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
-    renderer.shadowMap.enabled = true;
+    lowPower = Gfx.isSoftware(renderer);
+    if (lowPower) renderer.setPixelRatio(1);
+    renderer.shadowMap.enabled = !lowPower;
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     el.appendChild(renderer.domElement);
 
@@ -415,7 +417,8 @@ const Dreidel3D = (function () {
     if (document.hidden || !container.offsetParent) return;
     // Full speed while spinning or standing up; 30 fps when the dreidel is just idling.
     const busy = anim && (anim.kind === 'spin' || anim.kind === 'stand' || (anim.kind === 'landed' && now - anim.t0 < anim.T + anim.F + 1200));
-    if (!busy && now - lastT < 31) return;
+    if (!busy && now - lastT < (lowPower ? 90 : 31)) return;
+    if (busy && lowPower && now - lastT < 31) return;
     const dt = Math.min(0.05, (now - lastT) / 1000);
     lastT = now;
     step(now, dt);
@@ -508,7 +511,7 @@ const Dreidel3D = (function () {
 
   // ---------- Skin thumbnails for the picker ----------
   let thumbR = null, thumbScene = null, thumbCam = null;
-  function thumbnail(id, size = 140) {
+  function thumbnail(id, size = 140, { full = false } = {}) {
     const key = 'thumb-' + id + (inIsrael ? 'p' : 's') + (M.fontReady ? 'f' : '');
     if (texCache[key]) return texCache[key];
     // Finished thumbnails are kept on the device, so the picker is instant next time.
@@ -537,7 +540,7 @@ const Dreidel3D = (function () {
         thumbCam = new T.PerspectiveCamera(30, 1, 0.1, 50);
         thumbCam.position.set(2.5, 2.3, 3.7); thumbCam.lookAt(0, 1.08, 0);
       }
-      const m = M.build(getSkin(id), inIsrael, { small: true });
+      const m = M.build(getSkin(id), inIsrael, { small: !full });
       m.rotation.y = -0.55;
       m.rotation.z = 0.12;
       thumbScene.add(m);
