@@ -1,8 +1,22 @@
-# 🕎 Dreidel — Game Spec (draft v0.1)
+# 🕎🐝 Mack-a-bee Dreidel — Game Spec (draft v0.2)
 
-A multiplayer dreidel game for phones and computers. Everyone joins one room with a short code. They can sit at the same table or be in different countries. Players **wager their own coins**, aim a **skill meter** for a better spin, and answer **Hilchot Chanukah trivia** to protect (or steal) a Gimel. Classic dreidel is still available as a toggle.
+A multiplayer dreidel game for phones and computers, hosted by **Mack**, a cute bee who is the game's dealer, banker and guide (*Mack-a-bee*). Up to **8 players** join one room with a short code. They can sit at the same table or be in different countries. Players **wager their own coins**, aim a **skill meter** for a better spin, and answer **Sefaria-sourced Chanukah trivia** to protect (or steal) a Gimel. Classic dreidel is still available as a toggle.
 
-> Status: **planning**. Nothing is built yet. Items marked ❓ are open questions; the value shown is the suggested default.
+> Status: **planning**. Nothing is built yet. Items marked ❓ are still open; the value shown is the suggested default.
+
+### Decisions so far
+| Topic | Decision |
+|---|---|
+| Players | 2–8 per game |
+| Meter difficulty | Based on the **plain number of coins** wagered, so it's harder to build a big pile |
+| Gold "perfect" line | Yes. It shrinks along with the green zone, and the marker speeds up as the wager grows |
+| Out of coins | Can't spin, but can still answer trivia and **steal** their way back in |
+| Hey on an odd wager | Round up |
+| Ties at the end | Spin-off between the tied players |
+| Trivia | Difficulty levels, every question sourced from texts on **Sefaria** |
+| Skins | Many available from the start; more unlock the more you win |
+| Server | **New Firebase project** (Realtime Database + anonymous sign-in) |
+| Host character | **Mack the bee**: dealer, banker, narrator and rules guide |
 
 ---
 
@@ -11,7 +25,7 @@ A multiplayer dreidel game for phones and computers. Everyone joins one room wit
 | Mode | Summary |
 |---|---|
 | **Wager Dreidel** (default) | Each player bets their own coins every turn. Skill meter + optional trivia. |
-| **Classic Dreidel** (toggle) | Traditional rules with a shared pot and an ante. |
+| **Classic Dreidel** (toggle) | Traditional rules with a shared pot (Mack holds it) and an ante. |
 
 Both modes are played in **rounds, like bowling**: in each round every player spins once, in seat order. After the last round, the player with the most coins wins.
 
@@ -20,51 +34,52 @@ Both modes are played in **rounds, like bowling**: in each round every player sp
 ## 2. Wager Dreidel rules
 
 ### 2.1 A turn
-1. **Wager:** pick how many of your coins to bet (minimum 1, maximum all of them), using a slider plus quick buttons: 1 · ¼ · ½ · All-in.
+1. **Wager:** pick how many of your coins to bet (minimum 1, maximum all of them), using a slider plus quick buttons: 1 · 5 · 10 · All-in. The meter preview updates live, so you can see how hard the bet will be before you commit.
 2. **Aim:** the skill meter appears (see §3). Tap to stop the marker.
 3. **Spin:** the dreidel spins and lands on a letter.
-4. **Payout:**
+4. **Payout** (Mack pays out of, or collects into, his honey-pot bank):
 
 | Letter | Result (wager = 10) |
 |---|---|
 | **ג Gimel** | Win your wager again: +10 (you have 20 from that bet) |
-| **ה Hey** | Win half your wager: +5 |
+| **ה Hey** | Win half your wager, rounded up: +5 (a wager of 5 wins +3) |
 | **נ Nun** | Nothing happens: you keep your 10 |
 | **ש Shin** / **פ Pey** | Lose your wager: −10 |
 
-- **Hey with an odd wager:** ❓ round **up** (a wager of 5 wins +3).
-- **Gimel + trivia:** see §4. A Gimel can be lost or stolen.
+A Gimel may trigger trivia (§4), and then it can be lost or stolen.
 
 ### 2.2 Running out of coins
-❓ Suggested: a player who reaches 0 is **"out of coins" but stays in the game**. They skip their spins but can still answer trivia, and a correct steal (§4) brings them back. Busted players stay involved and get a way back in.
+A player at 0 coins is **"out of coins" but stays in the game**. Their spin is skipped, but they still answer every trivia question. A correct steal puts coins back in their pocket, and they spin again from the next round.
 
 ### 2.3 Turn timer
-30 seconds to wager and aim. If time runs out, the bet is 1 coin and the spin counts as a miss. This keeps a slow or disconnected player from stalling the game.
+30 seconds to wager and aim. If time runs out, the bet is 1 coin and the spin counts as a miss.
 
-### 2.4 End of game
-- After **N rounds** (host chooses 3 / 5 / 7 / 10, default 5), the player with the most coins wins.
-- ❓ **Ties:** a one-spin sudden-death spin-off between the tied players (all-in on a fixed 10, best letter wins), or simply co-winners.
+### 2.4 End of game and tiebreaker
+- After **N rounds** (host chooses 3 / 5 / 7 / 10 / custom, default 5), the player with the most coins wins.
+- **Spin-off:** if players tie for first, each tied player spins once with no wager and no trivia, and the best letter wins (Gimel > Hey > Nun > Shin/Pey). Anyone still tied spins again.
 
 ---
 
 ## 3. The skill meter
 
-A horizontal bar with a **green zone** and a marker that moves back and forth across the bar. Tap (or press Space) to stop it.
+A horizontal bar with a **green zone**, a **gold line** at its center, and a marker that moves back and forth across the bar. Tap (or press Space) to stop it.
 
-- **The green zone moves**: it starts at a random spot each turn, so players can't memorize it.
-- **A gold center** inside the green gives a "Perfect" spin. ❓ Optional, but it adds a skill moment worth going for.
-- **Difficulty grows with the wager.** Let *r* = wager ÷ your current coins (so All-in is always the hardest):
+- **The green zone moves**: it starts at a random spot each turn.
+- **Grades:** marker outside the green = **Miss**; in the green = **Good**; on the gold line = **Perfect**.
+- **Difficulty depends on the plain number of coins wagered.** It climbs fast for the first coins and then levels off, reaching full difficulty at 100 coins:
 
-| | r ≈ 0 (tiny bet) | r = 1 (All-in) |
-|---|---|---|
-| Green width | 30% of the bar | 6% of the bar |
-| Marker speed | ~0.8 sweeps/sec | ~2.6 sweeps/sec |
+| Wager | 1 | 5 | 10 | 20 | 50 | 100+ |
+|---|---|---|---|---|---|---|
+| Green width (% of bar) | 26% | 20% | 17% | 13.5% | 9% | 5% |
+| Marker speed (sweeps/sec) | 1.1 | 1.65 | 1.9 | 2.25 | 2.7 | 3.0 |
 
-  ❓ The alternative is to base difficulty on the **absolute** number of coins (betting 10 is always harder than betting 5). The ratio stays fair as balances grow; the absolute version is simpler to explain.
+  - The gold line is always ~20% of the green width, so it shrinks too.
+  - Above 100 coins it keeps getting harder, down to a 2.5% green zone at 3.5 sweeps/sec. Big piles can't be bet in one easy swing.
+  - Formula (in `config.js`): `d = log2(1 + wager) / log2(101)`; width and speed scale with `d`.
+  - Because difficulty uses the plain number, a bigger **starting coins** setting makes all-in bets harder. That's intended.
 
 ### 3.1 How the spin result changes the odds
-
-The tap is graded **Miss / Good / Perfect**. The referee (§6) then draws the letter with weighted odds:
+The referee (§7) draws the letter with weighted odds based on the grade:
 
 | Tap | Gimel | Hey | Nun | Shin/Pey | Spinner's average result* |
 |---|---|---|---|---|---|
@@ -72,21 +87,20 @@ The tap is graded **Miss / Good / Perfect**. The referee (§6) then draws the le
 | Good | 30% | 28% | 22% | 20% | +24% |
 | Perfect | 35% | 30% | 20% | 15% | +35% |
 
-\*Before trivia. Trivia lowers the real value of a Gimel. All numbers live in one config file and will be tuned with a simulation script plus playtesting.
+\*Before trivia, which lowers the real value of a Gimel. All numbers are in `config.js` and will be tuned with an odds simulation plus playtesting.
 
 ### 3.2 How the spin looks
 - **Miss:** a short, wobbly spin (~1.5 s) that tips over quickly.
-- **Good / Perfect:** a smooth, longer spin (~2.5–3 s) with a slow, dramatic fall at the end. Perfect adds sparkles.
-- No spin lasts longer than about 3.5 s.
-- The letter is chosen **before** the animation starts, and the animation is built to land on it. That keeps the odds exact, and every screen shows the same result.
+- **Good / Perfect:** a smooth, longer spin (~2.5–3 s) with a slow, dramatic fall at the end. Perfect adds a sparkle trail and a cheer from Mack.
+- No spin lasts longer than about 3.5 s. The letter is chosen **before** the animation starts and the animation lands on it, so the odds stay exact and every screen shows the same result.
 
 ---
 
 ## 4. Torah trivia (toggle, default ON)
 
-**Trigger:** when a spinner lands on **Gimel**, there is a ❓ **70%** chance a trivia question pops up for **everyone**.
+**Trigger:** a Gimel triggers a "Buzz Quiz!" from Mack with a 70% chance (host setting: 50 / 70 / 100%).
 
-**Format:** a question on Hilchot / Inyanei Chanukah with 4 multiple-choice options. Everyone answers at the same time on their own screen with a countdown (host setting: 10 / 15 / 20 s, default 15).
+**Format:** one question with 4 options. Every player, including busted ones, answers at the same time on their own screen with a countdown (host setting: 10 / 15 / 20 s, default 15).
 
 **Resolution:**
 
@@ -95,23 +109,32 @@ The tap is graded **Miss / Good / Perfect**. The referee (§6) then draws the le
 | ✅ Correct | anyone | Gimel stands: the spinner wins it (even if others were also right). |
 | ❌ Wrong / no answer | nobody correct | Gimel turns into **Nun**: the spinner keeps the wager and wins nothing. |
 | ❌ Wrong / no answer | one correct | That player **steals the winnings** (+wager). The spinner keeps their original wager. |
-| ❌ Wrong / no answer | several correct | The winnings are **split** between them. ❓ Leftover coin(s) go to the fastest correct answer. |
+| ❌ Wrong / no answer | several correct | The winnings are **split**; any leftover coin goes to the fastest correct answer. |
 
-After the question closes, everyone sees the correct answer and a one-line source (e.g. *Shulchan Aruch OC 671:2*), so the game teaches as it goes.
+### 4.1 After each question: the source
+Everyone sees the right answer, a short quote from the source (Hebrew + English), and a **"Learn more on Sefaria"** link that opens the exact passage (e.g. *Shabbat 21b*, *Shulchan Arukh OC 671:2*).
 
-### 4.1 Question bank
-- Bilingual (English + Hebrew), written into a data file: `{ id, difficulty, q:{en,he}, options:{en[],he[]}, answer, source }`.
-- Topics: the story and its sources (Gemara Shabbat 21b), who is obligated, number of candles and mehadrin (Beit Shammai / Beit Hillel), time and place of lighting, shamash, brachot, Shabbat and Motzei Shabbat, travelers and guests, al hanisim, Hallel, Torah reading, oil vs. wax, women's customs, the dreidel itself.
-- Where Ashkenazi and Sephardi practice differ, questions say which, or ask about the dispute directly.
-- Target ~150 questions so a game rarely repeats one. Questions are not repeated within a room's session.
-- ❓ **Difficulty setting:** Kids / Adults / Talmid Chacham / Mixed (default Adults + hard mixed in).
-- ⚠️ I'll draft the questions with sources, but **someone knowledgeable should review the bank** before it goes live.
+### 4.2 Difficulty levels (host setting)
+| Level | What it covers | Main sources |
+|---|---|---|
+| 🐝 **Kids** | The story, the miracle of the oil, the basics of lighting, the brachot | Shabbat 21b, Megillat Antiochus, Maccabees I, Al HaNisim, Kitzur Shulchan Arukh 139 |
+| 🍯 **Adults** | Practical halacha: time, place, number of candles, shamash, Shabbat, guests, Hallel, Torah reading | Shulchan Arukh OC 670–684, Kitzur Shulchan Arukh 139, Rambam Hilchot Megillah vaChanukah 3–4 |
+| 📜 **Talmid Chacham** | Gemara discussions, disputes and fine details | Shabbat 21a–24a (Beit Shammai/Hillel, *mehadrin min hamehadrin*, *pirsumei nisa*, *ner ish uveito*), Rambam, Mishnah Berurah, Megillah, Soferim 20 |
+| 🎲 **Mixed** | A blend that gets harder as the game goes on | All of the above |
+
+### 4.3 How the question bank is built
+- Questions are written **ahead of time from the actual texts** and saved in `data/questions.js`. They are not generated live, so the game never depends on Sefaria being up.
+- A small tool (`tools/fetch-sources.js`) downloads each source passage from the Sefaria API. Every question records the exact reference it comes from: `{ id, level, q:{en,he}, options:{en[],he[]}, answer, ref, quote:{en,he}, url }`.
+- **Rule: no source, no question.** Where Ashkenazi and Sephardi practice differ (e.g. the Rema vs. the Mechaber on how many candles each person lights), the question says which, or asks about the dispute directly.
+- Hebrew quotes use the original texts. English quotes are short and credited to the Sefaria translation (some, like the Koren Talmud, are licensed for non-commercial use only, which fits a free family game).
+- Target: ~50 questions per level (~150 total). A question isn't repeated within a room's session.
+- ⚠️ I'll draft and source every question, but **someone knowledgeable should review the bank** before it goes live.
 
 ---
 
 ## 5. Classic Dreidel (toggle)
 
-- Everyone antes 1 into the pot at the start of each round, and again whenever the pot is empty.
+- Everyone antes 1 into Mack's pot at the start of each round, and again whenever the pot is empty.
 - Nun: nothing. Gimel: take the whole pot. Hey: take half (rounded up). Shin/Pey: put 1 in.
 - A player with 0 coins is out. The game ends after N rounds or when one player is left.
 - Tap to spin with straight 25% odds (no wager, so no meter).
@@ -119,34 +142,47 @@ After the question closes, everyone sees the correct answer and a one-line sourc
 
 ---
 
-## 6. Multiplayer
+## 6. Mack the bee 🐝 (dealer, banker, guide)
 
-### 6.1 Technology: Firebase Realtime Database (same setup as Grow a Garden)
-- Static site on **GitHub Pages** with **Firebase Realtime Database + anonymous sign-in** (free Spark plan).
-- Why not a socket.io server like Purim-Pictionary? Free Render servers go to sleep and take ~1 minute to wake up. Firebase is always on, costs nothing at this scale, and you already know it.
-- ❓ Use a **new Firebase project** (`dreidel-…`), which is cleaner, or a `dreidel/` section inside the existing grow-a-garden project. Either way it's a 5-minute console step for you (I'll write exact instructions).
+Mack is a round, fuzzy, friendly bee in a little Maccabee helmet with a tiny shield. He runs the table.
 
-### 6.2 Rooms
-- **Host creates a room**, gets a **4-character code** (no look-alike letters, like Pictionary) plus a share link and QR code.
-- **Players join** with the code and enter a name and avatar. There are no accounts: Firebase signs them in anonymously in the background.
-- Up to **8 players**. The host picks the settings in the lobby; everyone sees them update live.
-- **Rejoin:** if a phone sleeps or a browser refreshes, the player rejoins the same seat with their coins.
-- Spectators can join after the game starts. ❓ A "TV mode" big-screen view for when everyone is in one room is a possible later phase.
-
-### 6.3 Who decides results: the host's device is the referee
-- The host's device runs the rules: it draws letters, runs the trivia timer and settles payouts. The other devices send in actions (wager, tap grade, trivia answer) and display the shared state.
-- The tap is graded on the spinner's own device, so internet lag can't spoil a good tap.
-- **If the host drops out**, the next player in seat order automatically becomes referee.
-- Trivia answers stay on the referee's device until the question closes.
-- This is "family-fair", not secure against someone hacking the browser. That's fine for this audience.
-
-Data layout sketch (`/rooms/{CODE}/`): `settings`, `players/{uid}` (name, avatar, skin, coins, seat, lang, online), `state` (phase, round, turn, deadline), `spin` (wager, grade, letter, seed), `trivia` (question id, option order, deadline), `answers/{uid}`, `log`.
+- **Guide:** on the start screen and the How-to-play screen, Mack explains the rules step by step in speech bubbles, then has players try a practice meter tap ("Try to land on my gold line!").
+- **Dealer:** he calls each turn ("Buzz buzz, Rivka, you're up!"), counts down the turn timer, and introduces the spin-off.
+- **Banker:** coins fly from and to his honey pot on every payout. In Classic mode the pot *is* his honey pot.
+- **Quizmaster:** he pops up with "Buzz Quiz!" for trivia, then reveals the answer and the source.
+- **Reactions:** cheer (Gimel / Perfect), wink (Hey), shrug (Nun), gasp (Shin/Pey), sneaky grin (a steal), trophy dance (winner).
+- **Art:** drawn as an animated SVG in code (flapping wings, bobbing, expression changes), so there are no image files and he looks sharp at any size. ❓ He could also make a small 3D cameo, buzzing around the spinning dreidel.
+- **Lines:** a pool of short, varied lines in English and Hebrew so he doesn't repeat himself. He talks more at the start and gets quieter as the game moves on.
+- **Hebrew name:** ❓ **מַכַּבִּי הַדְּבוֹרָה** ("Makabi the bee"). In Hebrew the pun works by sound: *Makabi* = מכבי.
 
 ---
 
-## 7. Start screen and settings
+## 7. Multiplayer
 
-**Start:** language (English / עברית) · Create room / Join room · How to play.
+### 7.1 Technology: a new Firebase project
+- Static site on **GitHub Pages** with **Firebase Realtime Database + anonymous sign-in** (free Spark plan), the same approach as Grow a Garden but in its own project.
+- One-time setup steps are in **Appendix A**.
+
+### 7.2 Rooms
+- **Host creates a room**, gets a **4-character code** (no look-alike letters) plus a share link and QR code.
+- **Players join** with the code and enter a name and avatar. There are no accounts or passwords.
+- **2–8 players.** A 9th person can watch as a spectator but can't play. The host picks the settings in the lobby; everyone sees them update live.
+- **Rejoin:** if a phone sleeps or a browser refreshes, the player rejoins the same seat with their coins.
+- ❓ A "TV mode" big-screen view for when everyone is in one room is a possible later phase.
+
+### 7.3 Who decides results: the host's device is the referee
+- The host's device runs the rules: it draws letters, runs the trivia timer and settles payouts. The other devices send in actions (wager, tap grade, trivia answer) and display the shared state.
+- The tap is graded on the spinner's own device, so internet lag can't spoil a good tap.
+- **If the host drops out**, the next player in seat order automatically becomes referee.
+- Trivia answers stay on the referee's device until the question closes. This is "family-fair", which is fine for this audience.
+
+Data layout sketch: `/rooms/{CODE}/` → `settings`, `players/{uid}` (name, avatar, skin, coins, seat, lang, online), `state` (phase, round, turn, deadline), `spin` (wager, grade, letter), `trivia` (question id, option order, deadline), `answers/{uid}`, `log`. `/profiles/{uid}/` → wins, stats, unlocked skins.
+
+---
+
+## 8. Start screen and settings
+
+**Start:** Mack waves hello · language (English / עברית) · Create room / Join room · How to play.
 
 **Host settings (lobby):**
 
@@ -157,71 +193,112 @@ Data layout sketch (`/rooms/{CODE}/`): `settings`, `players/{uid}` (name, avatar
 | Starting coins | 10 / 20 / 50 / custom | 20 |
 | Rounds | 3 / 5 / 7 / 10 / custom | 5 |
 | Trivia | On / Off | On |
+| Trivia level | Kids / Adults / Talmid Chacham / Mixed | Adults |
 | Trivia chance on Gimel | 50 / 70 / 100% | 70% |
 | Trivia time | 10 / 15 / 20 s | 15 s |
-| Trivia difficulty | Kids / Adults / Talmid Chacham / Mixed | Adults |
 
 **Per player (own device):** language, name, avatar, dreidel skin.
 
-The Israel toggle changes the 4th letter on the dreidel model, the result screens, and the phrase on the splash screen.
+The Israel toggle changes the 4th letter on the dreidel model, the result screens, and Mack's splash-screen line.
 
 ---
 
-## 8. "How to play" screen
-
+## 9. How-to-play screen (presented by Mack)
 - Shown automatically to each player the first time, and always available from a **?** button.
-- Short, illustrated, and **built from the current settings**: it explains Wager or Classic rules, says Shin or Pey, and includes the trivia section only when trivia is on.
-- Interactive practice meter: try a few taps before the game starts.
+- Built from the current settings: it explains Wager or Classic rules, says Shin or Pey, and includes the trivia section only when trivia is on.
+- Interactive: a practice wager and meter tap, with Mack showing how a bigger bet shrinks the green zone.
 
 ---
 
-## 9. Dreidel skins and easter eggs
+## 10. Dreidel skins, unlocks and easter eggs
 
-**Skins** (per player, everyone sees them): Classic wood · Silver · Glass · Clay ("I made it out of clay") · Gold · Chocolate gelt · Blocky/Lego · Neon · Olive wood · Menorah-lit.
-Each skin has its own look and cosmetic spin style (wobble, trail, sparkle, sound). ❓ All unlocked from the start, or unlocked by playing?
+**Starter skins (available right away):** Classic wood · Silver · Blue & white · Clay ("I made it out of clay") · Olive wood · Glass.
+
+**Unlockable skins:** earned with **honey jars 🍯**, which come from game wins, Perfect spins, correct trivia answers, and steals:
+
+| Skin | Unlocks at |
+|---|---|
+| Chocolate gelt | 1st win |
+| Gold | 3 wins |
+| Neon | 10 Perfect spins |
+| Blocky / Lego | 5 wins |
+| Menorah-lit (flames on each face) | 25 trivia answers correct |
+| Beehive (Mack's own) | 10 wins |
+| Beit HaMikdash stone | Win on Talmid Chacham level |
+| Diamond | 25 wins |
+
+- Each skin has its own look and cosmetic spin style (wobble, trail, sparkle, sound). Skins never change the odds.
+- Progress is saved with the player's anonymous Firebase profile plus a copy on the device. Because there are no accounts, progress belongs to **that phone/browser**. ❓ "Sign in with Google" to carry progress between devices could be added later.
+- Exact thresholds go in `config.js` and get tuned after playtesting.
 
 **Easter eggs** (not explained anywhere):
-- **Phone upside down** while spinning: the dreidel spins on its handle, upside down, on everyone's screen.
-- More ideas: shake the phone after landing for a gelt shower; hold the dreidel for 3 s for a "Maccabee spin" animation; on the 8th night (or 25 Kislev) the menorah fills up.
-- ❓ Suggested: easter eggs are **cosmetic only** and never change the odds, so the game stays fair.
-- Note: on iPhone, reading phone orientation needs a one-time permission tap. We'll ask quietly when the player enters a game.
+- **Phone upside down** while spinning: the dreidel spins upside down, on its handle, on everyone's screen.
+- Shake the phone after landing for a gelt shower; tap Mack 5 times and he does a loop-de-loop; on 25 Kislev the room's menorah fills with lights.
+- ❓ Easter eggs are **cosmetic only** and never change the odds.
+- On iPhone, reading phone orientation needs a one-time permission tap. We'll ask quietly when the player enters a game.
 
 ---
 
-## 10. Look and feel
+## 11. Look and feel
 - Phone-first, also works on tablets and desktops. Big tap targets.
-- **3D dreidel with Three.js** (same library and CDN as Grow a Garden), with a 2D fallback for weak devices.
-- Full **Hebrew UI with right-to-left layout**. Each player sees their own language; the trivia text appears in each player's language.
-- Synthesized sound effects (spin whir, clatter, coins, buzzer), like Grow a Garden, so there are no audio files. Mute button.
+- **3D dreidel with Three.js** (same library and CDN as Grow a Garden), with a 2D fallback for weak devices. Mack is drawn in SVG over the scene.
+- Full **Hebrew UI with right-to-left layout**. Each player sees their own language, including trivia.
+- Synthesized sound effects (spin whir, clatter, coins, buzzer, Mack's buzz), so there are no audio files. Mute button.
 - Installable PWA (add to home screen).
 
 ---
 
-## 11. Code layout (plain HTML/CSS/JS, no build step)
+## 12. Code layout (plain HTML/CSS/JS, no build step)
 
 | File | Contents |
 |---|---|
 | `index.html`, `css/style.css` | Screens and layout |
-| `js/config.js` | Odds tables, meter curves, defaults: all tunable numbers in one place |
-| `js/rules.js` | Pure game logic (wager payouts, classic pot, trivia settlement). No UI code, so it can be unit-tested |
-| `js/net.js` | Firebase rooms, presence, host/referee handoff |
+| `js/config.js` | Odds, meter curve, unlock thresholds, defaults: all tunable numbers in one place |
+| `js/rules.js` | Pure game logic (wager payouts, classic pot, trivia settlement, spin-off). No UI code, so it can be unit-tested |
+| `js/net.js` | Firebase rooms, presence, referee handoff, profiles |
 | `js/meter.js` | Skill meter |
 | `js/dreidel3d.js` | Three.js model, skins, spin and landing animation |
-| `js/trivia.js` + `data/questions.js` | Trivia flow + bilingual question bank |
+| `js/mack.js` | Mack the bee: SVG, animations, expressions, lines |
+| `js/trivia.js` + `data/questions.js` | Trivia flow + bilingual, sourced question bank |
 | `js/i18n.js` | English/Hebrew strings, RTL switching |
 | `js/audio.js` | Synth sounds |
 | `js/app.js` | Screens, lobby, game flow |
+| `tools/fetch-sources.js` | Downloads source passages from the Sefaria API for writing and checking questions |
 | `tests/` | Rules unit tests, odds simulation, multi-browser multiplayer test |
 
 ---
 
-## 12. Build phases
+## 13. Build phases
 
-1. **Core rules + meter + dreidel on one device.** `rules.js` with tests, the meter, the 3D spin/landing, and pass-and-play to feel out the fun and tune the odds.
-2. **Multiplayer.** Firebase rooms, codes, lobby, settings, turn flow, referee handoff, rejoin.
-3. **Trivia.** Question bank (first ~50, then up to 150), simultaneous answering, steal/split logic.
-4. **Hebrew + Israel toggle + How-to-play screen.**
-5. **Classic mode.**
-6. **Skins, easter eggs, sound, PWA polish.**
+1. **Core rules + meter + dreidel on one device.** `rules.js` with tests, the meter with the coin-based curve, the 3D spin/landing, and pass-and-play to feel out the fun and tune the odds.
+2. **Mack + multiplayer.** Mack's character and lines; Firebase rooms (up to 8), codes, lobby, settings, turn flow, referee handoff, rejoin.
+3. **Trivia.** The Sefaria source tool, a first 20 questions per level, simultaneous answering, steal/split, source reveal. Then grow to ~150.
+4. **Hebrew + Israel toggle + Mack's How-to-play.**
+5. **Classic mode + spin-off polish.**
+6. **Skins, honey jars and unlocks, easter eggs, sound, PWA polish.**
 
 Each phase ends with something playable that you can test on real phones.
+
+---
+
+## Appendix A — Firebase setup (one time, ~5 minutes)
+
+1. Go to **console.firebase.google.com**, click **Create a project**, and name it e.g. `mackabee-dreidel`. You can turn off Google Analytics.
+2. **Build → Authentication → Get started → Sign-in method → Anonymous → Enable.**
+3. **Build → Realtime Database → Create database.** Location: **europe-west1 (Belgium)**, the closest to Israel and fine for the US. Start in **locked mode**.
+4. In the database's **Rules** tab, paste this and click **Publish**:
+   ```json
+   {
+     "rules": {
+       "rooms": {
+         "$code": { ".read": "auth != null", ".write": "auth != null" }
+       },
+       "profiles": {
+         "$uid": { ".read": "auth != null && auth.uid === $uid", ".write": "auth != null && auth.uid === $uid" }
+       }
+     }
+   }
+   ```
+   (These will be tightened once the data layout is final.)
+5. **Project settings (gear icon) → General → Your apps → Web (`</>`)**: register an app named `dreidel`, no hosting.
+6. Copy the `firebaseConfig` block it shows you and paste it to me. Those values aren't secret: they're meant to be in the web page, and the rules above protect the data.
