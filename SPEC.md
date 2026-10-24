@@ -1,8 +1,8 @@
-# 🕎🐝 Mack-a-bee Dreidel — Game Spec (draft v0.2)
+# 🕎🐝 Mack-a-bee Dreidel — Game Spec (v0.3)
 
 A multiplayer dreidel game for phones and computers, hosted by **Mack**, a cute bee who is the game's dealer, banker and guide (*Mack-a-bee*). Up to **8 players** join one room with a short code. They can sit at the same table or be in different countries. Players **wager their own coins**, aim a **skill meter** for a better spin, and answer **Sefaria-sourced Chanukah trivia** to protect (or steal) a Gimel. Classic dreidel is still available as a toggle.
 
-> Status: **planning**. Nothing is built yet. Items marked ❓ are still open; the value shown is the suggested default.
+> Status: **design agreed; building phase 1.** Items marked ❓ are ideas for later phases.
 
 ### Decisions so far
 | Topic | Decision |
@@ -16,7 +16,9 @@ A multiplayer dreidel game for phones and computers, hosted by **Mack**, a cute 
 | Trivia | Difficulty levels, every question sourced from texts on **Sefaria** |
 | Skins | Many available from the start; more unlock the more you win |
 | Server | **New Firebase project** (Realtime Database + anonymous sign-in) |
-| Host character | **Mack the bee**: dealer, banker, narrator and rules guide |
+| Host character | **Mack the bee**: dealer, banker, narrator and rules guide. Hebrew name **מַכַּבִּי הַדְּבוֹרָה** |
+| Trivia in Classic | **No.** Trivia is Wager mode only |
+| Easter eggs | Cosmetic only; they never change the odds |
 
 ---
 
@@ -138,7 +140,7 @@ Everyone sees the right answer, a short quote from the source (Hebrew + English)
 - Nun: nothing. Gimel: take the whole pot. Hey: take half (rounded up). Shin/Pey: put 1 in.
 - A player with 0 coins is out. The game ends after N rounds or when one player is left.
 - Tap to spin with straight 25% odds (no wager, so no meter).
-- ❓ Trivia in Classic: if it's on, the **pot** is at stake on a Gimel, with the same steal/split rules.
+- No trivia in Classic mode. The trivia settings are hidden when Classic is selected.
 
 ---
 
@@ -153,7 +155,7 @@ Mack is a round, fuzzy, friendly bee in a little Maccabee helmet with a tiny shi
 - **Reactions:** cheer (Gimel / Perfect), wink (Hey), shrug (Nun), gasp (Shin/Pey), sneaky grin (a steal), trophy dance (winner).
 - **Art:** drawn as an animated SVG in code (flapping wings, bobbing, expression changes), so there are no image files and he looks sharp at any size. ❓ He could also make a small 3D cameo, buzzing around the spinning dreidel.
 - **Lines:** a pool of short, varied lines in English and Hebrew so he doesn't repeat himself. He talks more at the start and gets quieter as the game moves on.
-- **Hebrew name:** ❓ **מַכַּבִּי הַדְּבוֹרָה** ("Makabi the bee"). In Hebrew the pun works by sound: *Makabi* = מכבי.
+- **Hebrew name:** **מַכַּבִּי הַדְּבוֹרָה** ("Makabi the bee"). In Hebrew the pun works by sound: *Makabi* = מכבי.
 
 ---
 
@@ -192,7 +194,7 @@ Data layout sketch: `/rooms/{CODE}/` → `settings`, `players/{uid}` (name, avat
 | Location | 🇮🇱 In Israel (נס גדול היה **פה**, פ) / Outside Israel (נס גדול היה **שם**, ש) | Outside |
 | Starting coins | 10 / 20 / 50 / custom | 20 |
 | Rounds | 3 / 5 / 7 / 10 / custom | 5 |
-| Trivia | On / Off | On |
+| Trivia (Wager mode only) | On / Off | On |
 | Trivia level | Kids / Adults / Talmid Chacham / Mixed | Adults |
 | Trivia chance on Gimel | 50 / 70 / 100% | 70% |
 | Trivia time | 10 / 15 / 20 s | 15 s |
@@ -234,7 +236,7 @@ The Israel toggle changes the 4th letter on the dreidel model, the result screen
 **Easter eggs** (not explained anywhere):
 - **Phone upside down** while spinning: the dreidel spins upside down, on its handle, on everyone's screen.
 - Shake the phone after landing for a gelt shower; tap Mack 5 times and he does a loop-de-loop; on 25 Kislev the room's menorah fills with lights.
-- ❓ Easter eggs are **cosmetic only** and never change the odds.
+- Easter eggs are **cosmetic only** and never change the odds.
 - On iPhone, reading phone orientation needs a one-time permission tap. We'll ask quietly when the player enters a game.
 
 ---
