@@ -117,6 +117,12 @@ async function answer(p, how) {
   await p.click(`.q-opt[data-d="${d}"]`);
 }
 
+// Press Continue on the trivia answer, unless it already moved on by itself (it does after 7 s).
+async function cont(p) {
+  await p.waitForFunction(() => { const S = MackTest.state; return S && S.phase !== 'trivia'; }, null, { timeout: 30000, polling: 100 });
+  await p.click('#q-continue', { timeout: 3000 }).catch(() => {});
+}
+
 // Seat plates must show the same coins as the state.
 async function seatsMatch(p, ck, label = '') {
   const r = await p.evaluate(() => {
@@ -131,4 +137,4 @@ async function seatsMatch(p, ck, label = '') {
 
 async function shot(p, name) { await p.screenshot({ path: path.join(SHOTS, name + '.png') }); }
 
-module.exports = { serve, launch, page, Check, state, waitState, force, profile, setupLocal, startLocal, skipIntro, pass, spin, answer, seatsMatch, shot, SHOTS };
+module.exports = { cont, serve, launch, page, Check, state, waitState, force, profile, setupLocal, startLocal, skipIntro, pass, spin, answer, seatsMatch, shot, SHOTS };

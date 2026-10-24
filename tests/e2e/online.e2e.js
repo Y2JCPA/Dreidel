@@ -87,7 +87,7 @@ module.exports = [
       ck.ok(await a.isHidden('#q-continue'), 'only the host gets Continue');
       await H.shot(b, 'online-reveal-guest');
       await sameCoins(ck, [host, a, b], 'after kept');
-      await host.click('#q-continue');
+      await H.cont(host);
 
       // Turn 2 — Avi: gimel, Avi wrong, Batya right → stolen (or split with the computer player).
       await H.waitState(a, S => S.phase === 'turn' && S.turn === 1);
@@ -99,7 +99,7 @@ module.exports = [
       const out = (await H.state(b)).trivia.outcome;
       ck.ok(out === 'stolen' || out === 'split', 'Batya steals (maybe with the bot): ' + out);
       await sameCoins(ck, [host, a, b], 'after steal');
-      await host.click('#q-continue');
+      await H.cont(host);
 
       // Rest of the game: everyone plays their own turns.
       const t0 = Date.now();

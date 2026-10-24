@@ -56,7 +56,7 @@ module.exports = [
       await H.setupLocal(p, { humans: ['Moshe', 'Dina'], settings: { rounds: 3, triviaChance: 100, triviaSeconds: 10 } });
       await H.startLocal(p);
       const coins = async () => (await H.state(p)).players.map(x => x.coins);
-      const finishReveal = async () => { await p.waitForSelector('#q-continue'); await H.shot(p, 'pnp-reveal'); await p.click('#q-continue'); };
+      const finishReveal = async () => { await H.shot(p, 'pnp-reveal'); await H.cont(p); };
 
       // Rivka: gimel, she answers right → keeps it.
       await H.force(p, ['gimel']);

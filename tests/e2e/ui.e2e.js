@@ -237,7 +237,7 @@ module.exports = [
       await H.waitState(p, S => S.phase === 'trivia', null, 10000);
       ck.ok((await H.state(p)).trivia.qid.startsWith('k'), 'Kids level asks a Kids question');
       await H.answer(p, 'right');
-      await p.waitForSelector('#q-continue'); await p.click('#q-continue');
+      await H.cont(p);
       // Shake → gelt shower
       await p.evaluate(() => { const e = new Event('devicemotion'); e.accelerationIncludingGravity = { x: 30, y: 10, z: 5 }; window.dispatchEvent(e); });
       await p.waitForTimeout(150);
