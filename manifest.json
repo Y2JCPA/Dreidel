@@ -1,0 +1,11 @@
+{
+  "name": "Mack-a-bee Dreidel",
+  "short_name": "Dreidel",
+  "description": "A multiplayer dreidel game for the whole family, hosted by Mack the bee.",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070d22",
+  "theme_color": "#0a1330",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

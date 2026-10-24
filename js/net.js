@@ -1,0 +1,148 @@
+/* ============================================
+   MACK-A-BEE DREIDEL — Network backend
+   A tiny database API used by online rooms:
+     connect() → my user id
+     get / set / update / remove / transaction(path, …)
+     on(path, cb) → unsubscribe        (cb gets the value now and on every change)
+     onDisconnect(path, value)        (set when this device drops off; null removes)
+     now()                            (server-corrected clock)
+
+   Two backends:
+   • Firebase Realtime Database with anonymous sign-in (real online play).
+   • "Local net" over BroadcastChannel + localStorage, for testing
+     several players in browser tabs on one computer. Turn it on by
+     adding ?net=local to the address.
+   ============================================ */
+const Net = (function () {
+  const params = new URLSearchParams(location.search);
+  const wantLocal = params.get('net') === 'local';
+  const hasFirebase = typeof FIREBASE_CONFIG !== 'undefined' && FIREBASE_CONFIG && typeof firebase !== 'undefined' && firebase.initializeApp;
+
+  const split = path => path.split('/').filter(Boolean);
+  const clone = v => (v === undefined ? null : JSON.parse(JSON.stringify(v)));
+
+  // ---------- Local net (tabs on one computer) ----------
+  function LocalBackend() {
+    const KEY = 'mackabee_localnet';
+    const chan = new BroadcastChannel('mackabee_localnet');
+    const listeners = new Set();
+    const disconnects = [];
+    let me = sessionStorage.getItem('mackabee_localnet_uid');
+    if (!me) { me = 'L' + Math.random().toString(36).slice(2, 9); sessionStorage.setItem('mackabee_localnet_uid', me); }
+
+    const readTree = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } };
+    const writeTree = t => localStorage.setItem(KEY, JSON.stringify(t));
+    function at(tree, path) { let n = tree; for (const k of split(path)) { if (n == null || typeof n !== 'object') return null; n = n[k]; } return n === undefined ? null : n; }
+    function put(tree, path, val) {
+      const keys = split(path);
+      let n = tree;
+      for (let i = 0; i < keys.length - 1; i++) { if (typeof n[keys[i]] !== 'object' || n[keys[i]] === null) n[keys[i]] = {}; n = n[keys[i]]; }
+      const last = keys[keys.length - 1];
+      if (val === null || val === undefined) delete n[last]; else n[last] = clone(val);
+    }
+    function notify() {
+      for (const l of listeners) {
+        const v = at(readTree(), l.path);
+        const s = JSON.stringify(v);
+        if (s !== l.last) { l.last = s; try { l.cb(clone(v)); } catch (e) { console.error(e); } }
+      }
+    }
+    chan.onmessage = () => notify();
+    window.addEventListener('storage', e => { if (e.key === KEY) notify(); });
+    function changed() { chan.postMessage(1); setTimeout(notify, 0); }
+    window.addEventListener('pagehide', () => {
+      const t = readTree();
+      for (const [p, v] of disconnects) put(t, p, v);
+      writeTree(t); chan.postMessage(1);
+    });
+
+    return {
+      kind: 'local',
+      async connect() { return me; },
+      async get(path) { return clone(at(readTree(), path)); },
+      async set(path, val) { const t = readTree(); put(t, path, val); writeTree(t); changed(); },
+      async update(path, obj) { const t = readTree(); for (const k in obj) put(t, path + '/' + k, obj[k]); writeTree(t); changed(); },
+      async remove(path) { const t = readTree(); put(t, path, null); writeTree(t); changed(); },
+      async transaction(path, fn) {
+        const t = readTree();
+        const next = fn(clone(at(t, path)));
+        if (next === undefined) return { committed: false, value: at(t, path) };
+        put(t, path, next); writeTree(t); changed();
+        return { committed: true, value: clone(next) };
+      },
+      on(path, cb) {
+        const l = { path, cb, last: undefined };
+        listeners.add(l);
+        setTimeout(() => { const v = at(readTree(), path); l.last = JSON.stringify(v); cb(clone(v)); }, 0);
+        return () => listeners.delete(l);
+      },
+      onDisconnect(path, val) { disconnects.push([path, val]); },
+      cancelDisconnects() { disconnects.length = 0; },
+      now: () => Date.now(),
+    };
+  }
+
+  // ---------- Firebase ----------
+  function FirebaseBackend() {
+    let db = null, offset = 0;
+    const ref = p => db.ref(p);
+    return {
+      kind: 'firebase',
+      connect() {
+        return new Promise((resolve, reject) => {
+          try {
+            const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+            const auth = app.auth();
+            db = app.database();
+            const timer = setTimeout(() => reject(new Error('timeout')), 12000);
+            auth.onAuthStateChanged(u => {
+              if (!u) return;
+              clearTimeout(timer);
+              db.ref('.info/serverTimeOffset').on('value', s => { offset = s.val() || 0; });
+              resolve(u.uid);
+            });
+            auth.signInAnonymously().catch(e => { clearTimeout(timer); reject(e); });
+          } catch (e) { reject(e); }
+        });
+      },
+      async get(path) { const s = await ref(path).get(); return s.val(); },
+      set(path, val) { return ref(path).set(val); },
+      update(path, obj) { return ref(path).update(obj); },
+      remove(path) { return ref(path).remove(); },
+      async transaction(path, fn) {
+        const r = await ref(path).transaction(cur => { const n = fn(cur); return n === undefined ? undefined : n; });
+        return { committed: r.committed, value: r.snapshot.val() };
+      },
+      on(path, cb) {
+        const h = s => cb(s.val());
+        ref(path).on('value', h);
+        return () => ref(path).off('value', h);
+      },
+      onDisconnect(path, val) { const d = ref(path).onDisconnect(); return val === null ? d.remove() : d.set(val); },
+      cancelDisconnects() { /* handled per path by Firebase */ },
+      now: () => Date.now() + offset,
+    };
+  }
+
+  const backend = wantLocal ? LocalBackend() : hasFirebase ? FirebaseBackend() : null;
+  let uid = null, connecting = null;
+
+  return {
+    get available() { return !!backend; },
+    get kind() { return backend ? backend.kind : 'none'; },
+    get uid() { return uid; },
+    connect() {
+      if (!backend) return Promise.reject(new Error('offline'));
+      if (!connecting) connecting = backend.connect().then(id => (uid = id)).catch(e => { connecting = null; throw e; });
+      return connecting;
+    },
+    get: (p) => backend.get(p),
+    set: (p, v) => backend.set(p, v),
+    update: (p, o) => backend.update(p, o),
+    remove: (p) => backend.remove(p),
+    transaction: (p, fn) => backend.transaction(p, fn),
+    on: (p, cb) => backend.on(p, cb),
+    onDisconnect: (p, v) => backend.onDisconnect(p, v),
+    now: () => (backend ? backend.now() : Date.now()),
+  };
+})();

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Mack-a-bee Dreidel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A multiplayer dreidel game for the whole family, hosted by Mack the bee.">
+<meta name="theme-color" content="#0a1330">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&family=Suez+One&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ HOME ============ -->
+  <section id="scr-home" class="screen" hidden>
+    <header class="home-top">
+      <button class="chip-btn" id="home-profile" type="button"><span class="av" id="home-av"></span><span id="home-name"></span><span class="honey" id="home-honey"></span></button>
+      <div class="top-tools">
+        <button class="icon-btn" id="home-sound" type="button" aria-label="Sound"></button>
+        <button class="chip-btn lang-btn" id="home-lang" type="button"></button>
+      </div>
+    </header>
+    <div class="home-hero">
+      <div id="home-mack"></div>
+      <h1 class="logo"><span class="logo-main" data-t="title"></span><span class="logo-sub" data-t="tagline"></span></h1>
+    </div>
+    <div class="home-actions">
+      <button class="btn btn-gold btn-big" id="btn-local" type="button"><span data-t="playLocal"></span><small data-t="playLocalHint"></small></button>
+      <button class="btn btn-navy btn-big" id="btn-create" type="button"><span data-t="createRoom"></span><small data-t="createRoomHint"></small></button>
+      <form class="join-row" id="join-form" autocomplete="off">
+        <label for="join-code" class="sr" data-t="joinRoom"></label>
+        <input id="join-code" class="code-input" maxlength="4" autocapitalize="characters" spellcheck="false" inputmode="text">
+        <button class="btn btn-navy" type="submit" data-t="join"></button>
+      </form>
+      <div class="home-links">
+        <button class="link-btn" id="btn-howto" type="button" data-t="howTo"></button>
+        <button class="link-btn" id="btn-dreidels" type="button" data-t="myDreidels"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PROFILE / DREIDELS ============ -->
+  <section id="scr-profile" class="screen screen-scroll" hidden>
+    <header class="bar">
+      <button class="icon-btn back" id="prof-back" type="button" aria-label="Back">‹</button>
+      <h2 data-t="profileTitle"></h2>
+      <span class="honey big" id="prof-honey"></span>
+    </header>
+    <div class="sheet">
+      <label class="field">
+        <span data-t="nameLabel"></span>
+        <input id="prof-name" maxlength="16" autocomplete="nickname">
+      </label>
+      <div class="field">
+        <span data-t="avatarLabel"></span>
+        <div class="avatar-grid" id="prof-avatars"></div>
+      </div>
+      <div class="field">
+        <span data-t="dreidelLabel"></span>
+        <div class="skin-grid" id="prof-skins"></div>
+      </div>
+      <p class="stats" id="prof-stats"></p>
+      <button class="btn btn-gold" id="prof-done" type="button" data-t="done"></button>
+    </div>
+  </section>
+
+  <!-- ============ SETUP (local) / LOBBY (online) ============ -->
+  <section id="scr-setup" class="screen screen-scroll" hidden>
+    <header class="bar">
+      <button class="icon-btn back" id="setup-back" type="button" aria-label="Back">‹</button>
+      <h2 id="setup-title"></h2>
+      <button class="icon-btn" id="setup-howto" type="button" aria-label="How to play">?</button>
+    </header>
+    <div class="sheet">
+      <div class="room-box" id="room-box" hidden>
+        <div class="room-code-wrap">
+          <span class="lbl" data-t="roomCode"></span>
+          <span class="room-code" id="room-code"></span>
+          <button class="btn btn-small btn-navy" id="copy-link" type="button" data-t="copyLink"></button>
+          <span class="hint" data-t="shareHint"></span>
+        </div>
+        <div class="qr" id="room-qr"></div>
+      </div>
+
+      <div class="block">
+        <h3><span data-t="players"></span> <small id="players-count"></small></h3>
+        <ul class="player-list" id="player-list"></ul>
+        <div class="add-row" id="add-row">
+          <button class="btn btn-small btn-navy" id="add-bot" type="button">🐝 <span data-t="addBot"></span></button>
+          <form id="add-person" class="add-person">
+            <input id="person-name" maxlength="16" autocomplete="off">
+            <button class="btn btn-small btn-navy" type="submit" data-t="addPerson"></button>
+          </form>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3 data-t="settingsTitle"></h3>
+        <p class="hint" id="host-only" data-t="hostOnly" hidden></p>
+        <div id="settings-form" class="settings"></div>
+      </div>
+
+      <p class="warn" id="setup-warn" hidden></p>
+      <button class="btn btn-gold btn-big" id="btn-start" type="button" data-t="startGame"></button>
+      <p class="hint center" id="wait-host" hidden></p>
+    </div>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section id="scr-game" class="screen game" hidden>
+    <header class="game-top">
+      <div class="round" id="g-round"></div>
+      <div class="menorah-wrap"><svg id="menorah" viewBox="0 0 180 70" aria-hidden="true"></svg><div class="pot" id="g-pot" hidden></div></div>
+      <button class="icon-btn" id="g-menu" type="button" aria-label="Menu">☰</button>
+    </header>
+    <div class="stage" id="stage">
+      <div class="three" id="three"></div>
+      <div class="no3d" id="no3d" hidden><span id="no3d-letter"></span></div>
+      <div class="seats" id="seats"></div>
+      <div class="coins-layer" id="coins"></div>
+      <div class="banner" id="g-banner" hidden></div>
+      <div class="result-pop" id="result-pop" hidden></div>
+      <div class="grade-flash" id="grade-flash" hidden></div>
+      <div id="mack-corner"></div>
+    </div>
+    <footer class="panel" id="panel"></footer>
+  </section>
+
+  <!-- ============ OVERLAYS ============ -->
+  <div class="overlay" id="ov-intro" hidden>
+    <div class="intro">
+      <div id="intro-mack"></div>
+      <div class="intro-card">
+        <h2 id="intro-title"></h2>
+        <div id="intro-body"></div>
+        <div class="intro-dots" id="intro-dots"></div>
+        <div class="intro-nav">
+          <button class="btn btn-navy" id="intro-back" type="button" data-t="back"></button>
+          <button class="btn btn-gold" id="intro-next" type="button" data-t="next"></button>
+        </div>
+        <button class="link-btn" id="intro-skip" type="button" data-t="intro_skip"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay dim" id="ov-trivia" hidden>
+    <div class="quiz" id="quiz"></div>
+  </div>
+
+  <div class="overlay dim" id="ov-pass" hidden>
+    <div class="pass-card">
+      <p data-t="passTo"></p>
+      <div class="pass-who" id="pass-who"></div>
+      <button class="btn btn-gold btn-big" id="pass-go" type="button"></button>
+    </div>
+  </div>
+
+  <div class="overlay dim" id="ov-over" hidden>
+    <div class="over" id="over"></div>
+  </div>
+
+  <div class="overlay dim" id="ov-menu" hidden>
+    <div class="menu-card">
+      <h2 data-t="menu"></h2>
+      <button class="btn btn-navy" id="m-rules" type="button" data-t="rules"></button>
+      <button class="btn btn-navy" id="m-sound" type="button"></button>
+      <button class="btn btn-navy" id="m-quiet" type="button"></button>
+      <button class="btn btn-navy" id="m-lang" type="button"></button>
+      <button class="btn btn-red" id="m-leave" type="button" data-t="leaveGame"></button>
+      <button class="link-btn" id="m-close" type="button" data-t="continue"></button>
+    </div>
+  </div>
+
+  <div class="overlay dim" id="ov-confirm" hidden>
+    <div class="menu-card">
+      <h2 id="confirm-text"></h2>
+      <div class="intro-nav">
+        <button class="btn btn-navy" id="confirm-no" type="button" data-t="no"></button>
+        <button class="btn btn-red" id="confirm-yes" type="button" data-t="yes"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="js/config.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/rules.js"></script>
+<script src="data/questions-kids.js"></script>
+<script src="data/questions-adults.js"></script>
+<script src="data/questions-tc.js"></script>
+<script src="js/trivia.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/bots.js"></script>
+<script src="js/net.js"></script>
+<script src="js/room.js"></script>
+<script src="js/meter.js"></script>
+<script src="js/mack.js"></script>
+<script src="js/dreidel3d.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="28" fill="#1d6b45"/>
+  <circle cx="64" cy="64" r="56" fill="none" stroke="#0f1b45" stroke-width="10"/>
+  <circle cx="64" cy="64" r="50" fill="none" stroke="#e9b949" stroke-width="2.5"/>
+  <rect x="59" y="16" width="10" height="20" rx="4" fill="#a87414"/>
+  <path d="M38 34 H90 V76 L64 112 L38 76 Z" fill="#e9b949" stroke="#a87414" stroke-width="3" stroke-linejoin="round"/>
+  <text x="64" y="70" text-anchor="middle" font-family="Georgia, serif" font-size="34" font-weight="700" fill="#5a3a00">ג</text>
+</svg>

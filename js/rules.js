@@ -121,6 +121,7 @@ const Rules = (function () {
     const s = normalizeSettings(settings);
     const S = {
       v: 1,
+      gid: Math.random().toString(36).slice(2, 10),   // new id per game, so screens can tell games apart
       settings: s,
       players: players.slice(0, C.players.max).map(p => ({
         id: p.id, name: p.name, avatar: p.avatar, skin: p.skin || 'wood',
