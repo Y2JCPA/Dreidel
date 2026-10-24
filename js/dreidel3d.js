@@ -285,7 +285,7 @@ const Dreidel3D = (function () {
         h = new T.MeshStandardMaterial({ color: edge, roughness: 0.95 });
         break;
       case 'metal':
-        b = new T.MeshStandardMaterial({ color: body, metalness: 1, roughness: skin.id === 'gold' ? 0.22 : 0.16, envMapIntensity: 1.3 });
+        b = new T.MeshStandardMaterial({ color: body, metalness: skin.id === 'gold' ? 1 : 0.85, roughness: skin.id === 'gold' ? 0.22 : 0.24, envMapIntensity: skin.id === 'gold' ? 1.3 : 1.7 });
         h = new T.MeshStandardMaterial({ color: edge, metalness: 1, roughness: 0.25, envMapIntensity: 1.3 });
         break;
       case 'foil':
