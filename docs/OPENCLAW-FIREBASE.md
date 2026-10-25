@@ -82,3 +82,14 @@ const FIREBASE_CONFIG = {
 - whether the config was pushed to the branch (with the commit link)
 - the GitHub Pages URL and whether it loads
 - the result of the two-player test, plus any console errors
+
+---
+
+## If the database doesn't respond
+
+If creating a room shows *"Couldn't reach the online game server"* (older versions stayed on *Connecting…*), and the database URL times out even from Google Cloud Shell while the console says the database is active, the instance itself is broken on Google's side. Replace it:
+
+1. Realtime Database → **⋮ → Delete database** (it's empty; nothing is lost). If the console won't allow it, create a **new Firebase project** instead and repeat steps 1–6 above.
+2. **Create database** again, this time in **us-central1 (United States)**, Firebase's default and most-used location. Turn-based play doesn't need a nearby server. Its URL looks like `https://<project>-default-rtdb.firebaseio.com`.
+3. Publish the rules (step 4), then update `databaseURL` in `js/firebase-config.js`. Pull the branch first.
+4. Check: opening `<databaseURL>/rooms.json` in a browser should answer **Permission denied** right away. A long wait means it's still not reachable.

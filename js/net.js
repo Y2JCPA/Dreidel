@@ -131,6 +131,13 @@ const Net = (function () {
   }
 
   const backend = wantLocal ? LocalBackend() : hasFirebase ? FirebaseBackend() : null;
+  function withTimeout(promise, ms = 15000) {
+    let timer;
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => { timer = setTimeout(() => reject(Object.assign(new Error('unreachable'), { code: 'unreachable' })), ms); }),
+    ]).finally(() => clearTimeout(timer));
+  }
   let uid = null, connecting = null;
 
   return {
@@ -142,11 +149,13 @@ const Net = (function () {
       if (!connecting) connecting = backend.connect().then(id => (uid = id)).catch(e => { connecting = null; throw e; });
       return connecting;
     },
-    get: (p) => backend.get(p),
+    // Reads and transactions give up after 15 s, so an unreachable database shows an error
+    // instead of "Connecting…" forever.
+    get: (p) => withTimeout(backend.get(p)),
     set: (p, v) => backend.set(p, v),
     update: (p, o) => backend.update(p, o),
     remove: (p) => backend.remove(p),
-    transaction: (p, fn) => backend.transaction(p, fn),
+    transaction: (p, fn) => withTimeout(backend.transaction(p, fn)),
     on: (p, cb) => backend.on(p, cb),
     onDisconnect: (p, v) => backend.onDisconnect(p, v),
     now: () => (backend ? backend.now() : Date.now()),

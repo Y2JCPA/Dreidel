@@ -373,7 +373,7 @@
       room = await Room.create(P());
       $('toast').hidden = true;
       enterLobby();
-    } catch (e) { console.error(e); toast(t('errConnect')); }
+    } catch (e) { if (e.code !== 'unreachable') console.error(e); toast(t('errConnect'), 5000); }
   }
   async function joinOnline(code) {
     code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -386,7 +386,7 @@
       $('toast').hidden = true;
       enterLobby();
     } catch (e) {
-      if (e.code !== 'notFound' && e.code !== 'full') console.error(e);
+      if (e.code !== 'notFound' && e.code !== 'full' && e.code !== 'unreachable') console.error(e);
       toast(e.code === 'notFound' ? t('errNotFound', { code }) : e.code === 'full' ? t('errFull') : t('errConnect'), 4000);
     }
   }

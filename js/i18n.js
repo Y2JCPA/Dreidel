@@ -97,7 +97,7 @@ const I18N = (function () {
       errNotFound: 'No room with code {code}. Check the letters and try again.',
       errFull: 'That room is full (8 players).',
       errStarted: 'That game has already started. You’re watching.',
-      errConnect: 'Couldn’t reach the server. Check your internet and try again.',
+      errConnect: 'Couldn’t reach the online game server. Try again in a minute, or play on this device.',
       spectating: 'Watching',
       hostLeft: '{name} is now the host',
 
@@ -303,7 +303,7 @@ const I18N = (function () {
       errNotFound: 'אין חדר עם הקוד {code}. בדקו את האותיות ונסו שוב.',
       errFull: 'החדר מלא (8 שחקנים).',
       errStarted: 'המשחק כבר התחיל. אתם צופים.',
-      errConnect: 'אין חיבור לשרת. בדקו את האינטרנט ונסו שוב.',
+      errConnect: 'אין חיבור לשרת המשחק. נסו שוב בעוד דקה, או שחקו במכשיר הזה.',
       spectating: 'צופה',
       hostLeft: '{name} הוא עכשיו המארח',
 
