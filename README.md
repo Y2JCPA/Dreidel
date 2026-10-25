@@ -2,6 +2,8 @@
 
 A dreidel game for the whole family, hosted by **Mack**, a fuzzy bee in a Maccabee helmet who is the dealer, banker and guide. Up to 8 players sit around a green felt poker table, on one phone or each on their own from anywhere.
 
+**Play:** https://y2jcpa.github.io/Dreidel/
+
 The full design is in [SPEC.md](SPEC.md).
 
 ## How it plays
@@ -35,7 +37,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 2. Paste the web app's `firebaseConfig` into [`js/firebase-config.js`](js/firebase-config.js).
 3. In **Authentication → Settings → Authorized domains**, add the domain the game is served from (for GitHub Pages: `y2jcpa.github.io`).
 
-Until that config is filled in, online buttons explain that online play isn't set up, and play on one device still works.
+The live game uses the Firebase project **`mackabee-dreidel-us`** (Realtime Database in us-central1). Until a config is filled in, online buttons explain that online play isn't set up, and play on one device still works.
 
 **How a room works:** the host's device is the referee. It applies everyone's moves with the same rules code, keeps time, and plays the computer players. Each player sends their moves to `rooms/{CODE}/inputs/{uid}`, and the host writes the game state to `rooms/{CODE}/state`. If the host drops out for 5 seconds, the online player in the lowest seat takes over automatically.
 

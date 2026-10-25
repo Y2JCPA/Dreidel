@@ -2,7 +2,7 @@
 
 A multiplayer dreidel game for phones and computers, hosted by **Mack**, a cute bee who is the game's dealer, banker and guide (*Mack-a-bee*). Up to **8 players** join one room with a short code. They can sit at the same table or be in different countries. Players **wager their own coins**, aim a **skill meter** for a better spin, and answer **Sefaria-sourced Chanukah trivia** to protect (or steal) a Gimel. Classic dreidel is still available as a toggle.
 
-> Status: **all six phases built** and playable on one device; online rooms are ready and switch on once `js/firebase-config.js` is filled in. Items marked ❓ are ideas for later. See [README.md](README.md) for running and testing.
+> Status: **live** at https://y2jcpa.github.io/Dreidel/ with online rooms on Firebase (project `mackabee-dreidel-us`). Items marked ❓ are ideas for later. See [README.md](README.md) for running and testing.
 
 ### Decisions so far
 | Topic | Decision |
