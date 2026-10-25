@@ -6,13 +6,13 @@
    Leave it as null and the game still works on one device.
    ============================================ */
 const FIREBASE_CONFIG = {
-  apiKey: 'AIzaSyCGgSxWylQyf24o9Z-RuAvMOkVpwe_9Xko',
-  authDomain: 'mackabee-dreidel.firebaseapp.com',
-  databaseURL: 'https://mackabee-dreidel-default-rtdb.europe-west1.firebasedatabase.app',
-  projectId: 'mackabee-dreidel',
-  storageBucket: 'mackabee-dreidel.firebasestorage.app',
-  messagingSenderId: '403678310192',
-  appId: '1:403678310192:web:03056cbb036aba916ea2f5',
+  apiKey: 'AIzaSyAkAROwGNjGVEcVtQp1LKvXM2V3E2ZFH-U',
+  authDomain: 'mackabee-dreidel-us.firebaseapp.com',
+  databaseURL: 'https://mackabee-dreidel-us-default-rtdb.firebaseio.com',
+  projectId: 'mackabee-dreidel-us',
+  storageBucket: 'mackabee-dreidel-us.firebasestorage.app',
+  messagingSenderId: '813865137711',
+  appId: '1:813865137711:web:fa5ebbd9eaf0dfe17878da',
 };
 /* Example:
 const FIREBASE_CONFIG = {
