@@ -406,6 +406,9 @@
       onState(st);
     });
     if (!P().seenIntro) openIntro((room.lobby && room.lobby.settings) || localSettings, { standalone: true });
+    const unsubConn = room.onConnection(() => { if (S && !$('scr-game').hidden) renderBanner(); });
+    const prevUnsub = unsubLobby;
+    unsubLobby = () => { prevUnsub && prevUnsub(); unsubConn(); };
   }
   function renderLobby(L) {
     if (!L || !L.meta) return;
@@ -949,7 +952,8 @@
   function renderBanner() {
     const b = $('g-banner');
     let text = '';
-    if (S.spinoff) text = t('spinoffHint');
+    if (room && room.kind === 'online' && room.connected === false) text = t('reconnecting');
+    else if (S.spinoff) text = t('spinoffHint');
     else if (!room.myIds.length) text = t('spectating');
     b.hidden = !text;
     b.textContent = text;

@@ -99,6 +99,7 @@ const I18N = (function () {
       errStarted: 'That game has already started. You’re watching.',
       errConnect: 'Couldn’t reach the online game server. Try again in a minute, or play on this device.',
       spectating: 'Watching',
+      reconnecting: 'Connection lost. Reconnecting…',
       hostLeft: '{name} is now the host',
 
       round: 'Round {r} of {n}',
@@ -305,6 +306,7 @@ const I18N = (function () {
       errStarted: 'המשחק כבר התחיל. אתם צופים.',
       errConnect: 'אין חיבור לשרת המשחק. נסו שוב בעוד דקה, או שחקו במכשיר הזה.',
       spectating: 'צופה',
+      reconnecting: 'החיבור נותק. מתחבר מחדש…',
       hostLeft: '{name} הוא עכשיו המארח',
 
       round: 'סבב {r} מתוך {n}',

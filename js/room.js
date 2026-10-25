@@ -116,7 +116,7 @@ const Room = (function () {
         settings,
         players: { [uid]: meEntry(profile, 0) },
       });
-      return open(code, uid, false);
+      return open(code, uid, false, profile);
     }
     throw err('nocode');
   }
@@ -129,9 +129,9 @@ const Room = (function () {
     const players = (await Net.get(`rooms/${code}/players`)) || {};
     if (players[uid]) {
       await Net.update(`rooms/${code}/players/${uid}`, { online: true });
-      return open(code, uid, false);
+      return open(code, uid, false, profile);
     }
-    if (meta.status !== 'lobby') return open(code, uid, true);   // game running: watch
+    if (meta.status !== 'lobby') return open(code, uid, true, profile);   // game running: watch
     const r = await Net.transaction(`rooms/${code}/players`, cur => {
       cur = cur || {};
       if (cur[uid]) return cur;
@@ -143,28 +143,52 @@ const Room = (function () {
       return cur;
     });
     if (!r.committed) throw err('full');
-    return open(code, uid, false);
+    return open(code, uid, false, profile);
   }
 
-  function open(code, uid, spectator) {
+  function open(code, uid, spectator, profile) {
     const base = `rooms/${code}`;
     const lobbyCbs = new Set(), stateCbs = new Set();
     const subs = [];
     let meta = null, settings = null, players = {}, S = null;
     let ref = null, bots = null, tickTimer = 0, inputsSub = null, seen = {}, firstInputs = true;
-    let inputN = 0, left = false;
+    let inputN = 0, left = false, beat = null;
     const offlineSince = {};
 
     const lobby = () => ({ code, meta, settings, players, uid, isHost: !!meta && meta.host === uid, spectator: !players[uid] });
     const emitLobby = () => lobbyCbs.forEach(cb => cb(lobby()));
 
-    if (!spectator) {
-      Net.update(`${base}/players/${uid}`, { online: true });
+    // Presence. Whenever this device (re)connects, mark the player online again and re-arm the
+    // "mark me offline if I drop" rule (the server forgets it each time it fires). Without this, a
+    // phone that briefly lost its connection stayed "offline" and had its turns played for it.
+    let connected = true, connCbs = new Set();
+    function ensurePresence() {
+      if (spectator || left) return;
       Net.onDisconnect(`${base}/players/${uid}/online`, false);
+      Net.transaction(`${base}/players`, cur => {
+        cur = cur || {};
+        if (cur[uid]) { cur[uid].online = true; return cur; }
+        // Dropped from the lobby while away: take a free seat again if the game hasn't started.
+        if (!meta || meta.status !== 'lobby' || Object.keys(cur).length >= CONFIG.players.max || !profile) return undefined;
+        const taken = new Set(Object.values(cur).map(p => p.seat));
+        let seat = 0; while (taken.has(seat)) seat++;
+        cur[uid] = meEntry(profile, seat);
+        return cur;
+      }).catch(() => {});
     }
+    let everConnected = false;
+    subs.push(Net.onConnection(c => {
+      const back = c && (!connected || !everConnected);
+      connected = c;
+      if (back) { everConnected = true; ensurePresence(); }
+      connCbs.forEach(cb => cb(c));
+    }));
+    const onVisible = () => { if (!document.hidden && connected) ensurePresence(); };
+    document.addEventListener('visibilitychange', onVisible);
 
     subs.push(Net.on(`${base}/meta`, v => { meta = v; emitLobby(); checkHost(); }));
     subs.push(Net.on(`${base}/settings`, v => { settings = v; emitLobby(); }));
+    subs.push(Net.on(`${base}/beat`, v => { beat = v; }));
     subs.push(Net.on(`${base}/players`, v => { players = v || {}; emitLobby(); checkHost(); }));
     subs.push(Net.on(`${base}/state`, v => {
       if (!v || !v.json) { S = null; if (ref) ref.adopt(null); stateCbs.forEach(cb => cb(null)); return; }
@@ -176,7 +200,12 @@ const Room = (function () {
 
     function writeState(n) {
       S = n;
-      Net.set(`${base}/state`, { json: JSON.stringify(n), seq: n.seq });
+      // Never overwrite a newer copy of this game (e.g. a phone waking up after someone else
+      // took over as referee).
+      const rec = { json: JSON.stringify(n), seq: n.seq, gid: n.gid, by: uid };
+      Net.transaction(`${base}/state`, cur => (cur && cur.gid === n.gid && cur.seq > n.seq && cur.by !== uid ? undefined : rec))
+        .then(r => { if (!r.committed) stopHost(); })
+        .catch(() => {});
       Net.update(`${base}/meta`, { updated: Net.now() });
       stateCbs.forEach(cb => cb(S));
       if (bots) bots.look(n);
@@ -200,7 +229,13 @@ const Room = (function () {
         }
         firstInputs = false;
       });
-      tickTimer = setInterval(() => { if (ref.state && ref.state.phase !== 'over') ref.tick(); }, 150);
+      let lastBeat = 0;
+      tickTimer = setInterval(() => {
+        if (meta && meta.host !== uid) { stopHost(); return; }   // someone else is referee now
+        // Heartbeat: lets the others notice if this phone freezes (e.g. it went to sleep).
+        if (Date.now() - lastBeat > 2000) { lastBeat = Date.now(); Net.set(`${base}/beat`, { by: uid, t: Net.now() }); }
+        if (ref && ref.state && ref.state.phase !== 'over') ref.tick();
+      }, 150);
       if (ref.state) bots.look(ref.state);
     }
     function stopHost() {
@@ -232,12 +267,14 @@ const Room = (function () {
       if (meta.host === uid) { if (S || meta.status === 'lobby') becomeHost(); housekeeping(); return; }
       stopHost();
       const host = players[meta.host];
-      const hostGone = !host || host.online === false;
+      // Gone = marked offline, or its heartbeat stopped (a frozen phone can stay "online").
+      const frozen = beat && beat.by === meta.host && Net.now() - beat.t > 8000;
+      const hostGone = !host || host.online === false || frozen;
       if (!hostGone) { delete offlineSince[meta.host]; return; }
       offlineSince[meta.host] = offlineSince[meta.host] || Date.now();
       if (Date.now() - offlineSince[meta.host] < 5000) return;
       // The online person in the lowest seat takes over.
-      const next = Object.entries(players).filter(([id, p]) => !p.bot && p.online !== false).sort((a, b) => a[1].seat - b[1].seat)[0];
+      const next = Object.entries(players).filter(([id, p]) => !p.bot && p.online !== false && id !== meta.host).sort((a, b) => a[1].seat - b[1].seat)[0];
       if (!next || next[0] !== uid) return;
       const oldHost = meta.host;
       Net.transaction(`${base}/meta`, cur => (cur && cur.host === oldHost ? Object.assign(cur, { host: uid }) : undefined));
@@ -254,6 +291,8 @@ const Room = (function () {
       now: Net.now,
       onLobby(cb) { lobbyCbs.add(cb); if (meta) cb(lobby()); return () => lobbyCbs.delete(cb); },
       onState(cb) { stateCbs.add(cb); if (S) cb(S); return () => stateCbs.delete(cb); },
+      onConnection(cb) { connCbs.add(cb); cb(connected); return () => connCbs.delete(cb); },
+      get connected() { return connected; },
       send(pid, a) {
         if (ref) { ref.act(pid, a); return; }
         Net.set(`${base}/inputs/${uid}`, { n: Date.now() * 10 + (inputN++ % 10), a });
@@ -292,6 +331,7 @@ const Room = (function () {
       },
       leave() {
         left = true;
+        document.removeEventListener('visibilitychange', onVisible);
         stopHost();
         clearInterval(hostCheck);
         subs.forEach(u => u());

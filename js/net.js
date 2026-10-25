@@ -83,6 +83,8 @@ const Net = (function () {
       },
       onDisconnect(path, val) { disconnects.push([path, val]); },
       cancelDisconnects() { disconnects.length = 0; },
+      onConnection(cb) { setTimeout(() => cb(true), 0); return () => {}; },   // tabs are always connected
+      setOffline() {},
       now: () => Date.now(),
     };
   }
@@ -126,6 +128,13 @@ const Net = (function () {
       },
       onDisconnect(path, val) { const d = ref(path).onDisconnect(); return val === null ? d.remove() : d.set(val); },
       cancelDisconnects() { /* handled per path by Firebase */ },
+      // Called with true/false whenever this device's link to the database comes and goes.
+      onConnection(cb) {
+        const r = db.ref('.info/connected'), h = s => cb(!!s.val());
+        r.on('value', h);
+        return () => r.off('value', h);
+      },
+      setOffline(off) { if (off) db.goOffline(); else db.goOnline(); },   // used by tests
       now: () => Date.now() + offset,
     };
   }
@@ -158,6 +167,8 @@ const Net = (function () {
     transaction: (p, fn) => withTimeout(backend.transaction(p, fn)),
     on: (p, cb) => backend.on(p, cb),
     onDisconnect: (p, v) => backend.onDisconnect(p, v),
+    onConnection: (cb) => backend.onConnection(cb),
+    setOffline: (off) => backend.setOffline(off),
     now: () => (backend ? backend.now() : Date.now()),
   };
 })();

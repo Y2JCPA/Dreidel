@@ -274,4 +274,86 @@ module.exports = [
       return ck;
     },
   },
+  {
+    name: 'online: a player whose phone drops off for a moment comes back and spins for himself (Firebase only)',
+    async run({ browser, url }) {
+      const ck = new H.Check(this.name);
+      if (!EMU) { ck.note('skipped: needs NET=emulator (real Firebase connection handling)'); return ck; }
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      const host = await player(ctx, url, 'h5', 'Son');
+      const code = await hostRoom(host);
+      const y = await joinRoom(ctx, url, 'y5', 'Yair', code);
+      await host.click('[data-set="trivia"] [data-v="false"]');
+      await host.waitForTimeout(400);
+      await host.click('#btn-start');
+      await y.waitForSelector('#scr-game:not([hidden])', { timeout: 20000 });
+      const yid = await y.evaluate(() => MackTest.room.uid);
+      const online = () => host.evaluate(id => { const p = MackTest.room.lobby.players[id]; return p && p.online; }, yid);
+      // Host spins; meanwhile Yair's phone loses its connection for a few seconds.
+      await H.spin(host, 2);
+      await y.evaluate(() => Net.setOffline(true));
+      await host.waitForFunction(id => MackTest.room.lobby.players[id] && MackTest.room.lobby.players[id].online === false, yid, { timeout: 20000 });
+      ck.ok(true, 'host sees Yair drop off');
+      ck.ok(await y.isVisible('#g-banner') && /Reconnecting/.test(await y.textContent('#g-banner')), 'Yair is told he is reconnecting');
+      await y.waitForTimeout(3000);
+      await y.evaluate(() => Net.setOffline(false));
+      await host.waitForFunction(id => MackTest.room.lobby.players[id] && MackTest.room.lobby.players[id].online === true, yid, { timeout: 20000 }).catch(() => {});
+      ck.eq(await online(), true, 'after reconnecting, Yair is marked online again');
+      // Yair's turn: nobody plays it for him; he bets 4 himself.
+      await H.waitState(y, (S, id) => S.phase === 'turn' && S.players[S.turn].id === id, yid, 30000);
+      await y.waitForTimeout(14000);   // longer than the 12 s "player gone" grace period
+      const S1 = await H.state(host);
+      ck.ok(S1.phase === 'turn' && S1.players[S1.turn].id === yid, 'his turn was not played for him');
+      await H.force(host, ['nun']);
+      await H.spin(y, 4);
+      await H.waitState(host, (S, id) => S.spin && S.spin.player === id, yid, 20000);
+      const sp = (await H.state(host)).spin;
+      ck.eq(sp.wager, 4, 'Yair placed his own bet');
+      ck.errors(host, y);
+      await ctx.close();
+      return ck;
+    },
+  },
+
+  {
+    name: 'online: the host\u2019s phone freezes (asleep but still connected), the other player takes over',
+    async run({ browser, url }) {
+      const ck = new H.Check(this.name);
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      const host = await player(ctx, url, 'h6', 'Son');
+      const code = await hostRoom(host);
+      const y = await joinRoom(ctx, url, 'y6', 'Yair', code);
+      await host.click('[data-set="trivia"] [data-v="false"]');
+      await host.waitForTimeout(400);
+      await host.click('#btn-start');
+      await y.waitForSelector('#scr-game:not([hidden])', { timeout: 20000 });
+      await H.spin(host, 2);
+      await H.waitState(y, S => S.phase === 'turn' && S.turn === 1, null, 20000);
+      const yid = await y.evaluate(() => MackTest.room.uid);
+      // The host's phone goes to sleep: its page stops running but nothing tells the server.
+      const cdp = await host.context().newCDPSession(host);
+      await cdp.send('Debugger.enable');
+      await cdp.send('Debugger.pause');
+      const t0 = Date.now();
+      await y.waitForFunction(() => MackTest.room && MackTest.room.isHost, null, { timeout: 40000 });
+      ck.note(`Yair took over ${((Date.now() - t0) / 1000).toFixed(1)} s after the host froze`);
+      await H.force(y, ['hey']);
+      await H.spin(y, 6);
+      await H.waitState(y, (S, id) => S.spin && S.spin.player === id && S.phase !== 'spinning', yid, 20000);
+      const coins = (await H.state(y)).players[1].coins;
+      ck.eq(coins, 23, 'Yair played his turn with the new referee (hey on 6: +3)');
+      // The host wakes up: it must not undo what happened while it slept.
+      await cdp.send('Debugger.resume');
+      await host.waitForTimeout(4000);
+      const after = await H.state(y);
+      ck.eq(after.players[1].coins, 23, 'waking host did not overwrite the newer game');
+      ck.ok(!(await host.evaluate(() => MackTest.room.isHost)), 'waking host knows it is no longer the referee');
+      await H.waitState(host, (S, n) => S.spins >= n, after.spins, 15000);
+      ck.ok(true, 'waking host catches up with the game');
+      ck.errors(host, y);
+      await ctx.close();
+      return ck;
+    },
+  },
+
 ];

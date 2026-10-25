@@ -39,7 +39,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 
 The live game uses the Firebase project **`mackabee-dreidel-us`** (Realtime Database in us-central1). Until a config is filled in, online buttons explain that online play isn't set up, and play on one device still works.
 
-**How a room works:** the host's device is the referee. It applies everyone's moves with the same rules code, keeps time, and plays the computer players. Each player sends their moves to `rooms/{CODE}/inputs/{uid}`, and the host writes the game state to `rooms/{CODE}/state`. If the host drops out for 5 seconds, the online player in the lowest seat takes over automatically.
+**How a room works:** the host's device is the referee. It applies everyone's moves with the same rules code, keeps time, and plays the computer players. Each player sends their moves to `rooms/{CODE}/inputs/{uid}`, and the host writes the game state to `rooms/{CODE}/state`. If the host drops out for 5 seconds, or its phone goes to sleep (the host writes a heartbeat to `rooms/{CODE}/beat` every 2 seconds, and 8 seconds of silence counts as gone), the online player in the lowest seat takes over automatically. A phone that loses its connection briefly marks itself online again when it reconnects, so its turns aren't played for it.
 
 ## Code layout
 
@@ -74,7 +74,7 @@ node tests/e2e/run.js                # full browser suite (~15 min), or filter: 
 The browser suite drives real games in headless Chromium with Playwright (`NODE_PATH=$(npm root -g)` if it's installed globally):
 
 - **Single device:** a full game against computer players, then play again. Pass-and-play trivia with every outcome (kept, stolen, split, nun). Classic pot and antes. A double spin-off.
-- **Online** (over `?net=local`): three people plus a computer player with trivia on every screen, wrong code, full room, a latecomer watching, reload and rejoin, the 30-second turn timer, a trivia timeout, and the host leaving in the lobby and mid-game.
+- **Online** (over `?net=local`): three people plus a computer player with trivia on every screen, wrong code, full room, a latecomer watching, reload and rejoin, a phone that drops off and comes back, a host phone that freezes, the 30-second turn timer, a trivia timeout, and the host leaving in the lobby and mid-game.
 - **Screens:** custom settings, Israel/Pey, the intro's practice meter, the menu, Hebrew mid-game, quiet Mack, leaving, dreidel unlocks after a win, touch taps, and seat layout at 11 screen sizes with 2–8 players.
 
 To run the online scenarios against **real Firebase code** using Google's local emulators (needs Java), start the emulators and load the rules, then run with `NET=emulator`:
