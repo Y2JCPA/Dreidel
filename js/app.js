@@ -108,6 +108,8 @@
     mackHome.say(I18N.pick('mack_home'));
   }
   function goHome() {
+    window.DreidelAnalytics?.leave();
+    window.GameAnalytics?.pause();
     if (room) { room.leave(); room = null; }
     if (unsubLobby) unsubLobby(); if (unsubState) unsubState();
     unsubLobby = unsubState = null;
@@ -562,6 +564,7 @@
     const old = force ? prev : S;
     prev = old;
     S = st;
+    window.DreidelAnalytics?.observe(S,room);
     if (threeOk) {
       Dreidel3D.setLetters(S.settings.inIsrael);
       if (ui.warmed !== S.gid) { ui.warmed = S.gid; Dreidel3D.warmSkins(S.players.map(p => p.skin)); }
@@ -1187,6 +1190,7 @@
 
   // ---------- Start ----------
   applyTexts();
+  window.GameAnalytics?.emit('game_ready');
   const roomParam = (params.get('room') || '').toUpperCase();
   if (roomParam) $('join-code').value = roomParam.slice(0, 4);
   if (!P().name) {
